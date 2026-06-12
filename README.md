@@ -11,7 +11,7 @@ replacements appear (and update, and disappear when cancelled) automatically.
 
 ## Feeds
 
-- Frankston line: `https://<username>.github.io/no-trains/frankston.ics`
+- Frankston line: `https://greggkp.github.io/no-trains/frankston.ics`
 
 To subscribe in Google Calendar: **Settings → Add calendar → From URL** and
 paste the feed URL. Note Google refreshes subscribed calendars on its own
