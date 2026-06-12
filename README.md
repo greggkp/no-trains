@@ -37,8 +37,12 @@ hyphenated line names used by the Metro site: `alamein`, `belgrave`,
   filters to `bus-replacement` entries for the configured lines, parses the
   human-readable times (e.g. *"8pm Friday 26 June to 11pm Sunday 28 June
   2026"*) into Melbourne-local event times, and writes RFC 5545 ICS files.
-  Entries whose times can't be parsed fall back to all-day events rather than
-  being dropped.
+  Each work's detail page is also scraped for the precise start time and the
+  affected station list, which goes in the event description. Night works
+  (buses only after the evening shutdown, trains during the day) become a
+  recurring event per night instead of one block; continuous works keep a
+  single block with the times in the event title. Entries whose times can't
+  be parsed fall back to all-day events rather than being dropped.
 - `.github/workflows/update-calendar.yml` — cron job that regenerates the
   feeds and commits only when something changed.
 - `docs/` — the generated feeds plus a small index page, published with

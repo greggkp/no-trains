@@ -23,65 +23,86 @@ END:DAYLIGHT
 END:VTIMEZONE
 BEGIN:VEVENT
 UID:pw-732311@metrotrains-planned-works
-DTSTAMP:20260609T100000Z
-DTSTART;TZID=Australia/Melbourne:20260609T200000
-DTEND;TZID=Australia/Melbourne:20260610T230000
+DTSTAMP:20260609T103000Z
+DTSTART;TZID=Australia/Melbourne:20260609T203000
+DTEND;TZID=Australia/Melbourne:20260609T230000
+RRULE:FREQ=DAILY;COUNT=2
 SUMMARY:🚌 Frankston Buses replace trains between South Yarra and Moorabb
- in
-DESCRIPTION:8pm Tuesday 9 June to 11pm Wednesday 10 June 2026\nDetails: htt
- ps://www.metrotrains.com.au/planned-works/buses-replace-trains-between-sou
- th-yarra-and-moorabbin-11/
+ in (8.30pm–last service each night)
+DESCRIPTION:8.30pm to last service each night\, Tuesday 9 June and Wednesda
+ y 10 June\nAffected stations (Frankston — Stopping All Stations): South 
+ Yarra\, Hawksburn\, Toorak\, Armadale\, Malvern\, Caulfield\, Glen Huntly\
+ , Ormond\, McKinnon\, Bentleigh\, Patterson\, Moorabbin\nAffected stations
+  (Frankston — Stopping All Stations): South Yarra\, Hawksburn\, Toorak\,
+  Armadale\, Malvern\, Caulfield\nAffected stations (Frankston — Limited 
+ Express): McKinnon\, Bentleigh\, Patterson\, Moorabbin\nAffected stations 
+ (Frankston — Express): Moorabbin\nDetails: https://www.metrotrains.com.a
+ u/planned-works/buses-replace-trains-between-south-yarra-and-moorabbin-11/
 URL:https://www.metrotrains.com.au/planned-works/buses-replace-trains-betwe
  en-south-yarra-and-moorabbin-11/
 END:VEVENT
 BEGIN:VEVENT
 UID:pw-732314@metrotrains-planned-works
-DTSTAMP:20260612T100000Z
-DTSTART;TZID=Australia/Melbourne:20260612T200000
+DTSTAMP:20260612T103000Z
+DTSTART;TZID=Australia/Melbourne:20260612T203000
 DTEND;TZID=Australia/Melbourne:20260614T230000
 SUMMARY:🚌 Frankston Buses replace trains between South Yarra and Caulfie
- ld
-DESCRIPTION:8pm Friday 12 June to 11pm Sunday 14 June 2026\nDetails: https:
- //www.metrotrains.com.au/planned-works/buses-replace-trains-between-south-
- yarra-and-caulfield-18/
+ ld (8.30pm Fri – last service Sun)
+DESCRIPTION:8.30pm Friday 12 June to last service Sunday 14 June\nAffected 
+ stations (Frankston — Stopping All Stations): South Yarra\, Hawksburn\, 
+ Toorak\, Armadale\, Malvern\, Caulfield\nAffected stations (Cranbourne —
+  Stopping All Stations): \nAffected stations (Pakenham — Stopping All St
+ ations): \nDetails: https://www.metrotrains.com.au/planned-works/buses-rep
+ lace-trains-between-south-yarra-and-caulfield-18/
 URL:https://www.metrotrains.com.au/planned-works/buses-replace-trains-betwe
  en-south-yarra-and-caulfield-18/
 END:VEVENT
 BEGIN:VEVENT
 UID:pw-732316@metrotrains-planned-works
-DTSTAMP:20260615T100000Z
-DTSTART;TZID=Australia/Melbourne:20260615T200000
-DTEND;TZID=Australia/Melbourne:20260617T230000
+DTSTAMP:20260615T101500Z
+DTSTART;TZID=Australia/Melbourne:20260615T201500
+DTEND;TZID=Australia/Melbourne:20260615T230000
+RRULE:FREQ=DAILY;COUNT=3
 SUMMARY:🚌 Frankston Buses replace trains between Moorabbin and Frankston
-DESCRIPTION:8pm Monday 15 June to 11pm Wednesday 17 June 2026\nDetails: htt
- ps://www.metrotrains.com.au/planned-works/buses-replace-trains-between-moo
- rabbin-and-frankston-12/
+  (8.15pm–last service each night)
+DESCRIPTION:8.15pm to last service each night\, Monday 15 June to Wednesday
+  17 June\nAffected stations: Moorabbin\, Highett\, Southland\, Cheltenham\
+ , Mentone\, Parkdale\, Mordialloc\, Aspendale\, Edithvale\, Chelsea\, Bonb
+ each\, Carrum\, Seaford\, Kananook\, Frankston\nDetails: https://www.metro
+ trains.com.au/planned-works/buses-replace-trains-between-moorabbin-and-fra
+ nkston-12/
 URL:https://www.metrotrains.com.au/planned-works/buses-replace-trains-betwe
  en-moorabbin-and-frankston-12/
 END:VEVENT
 BEGIN:VEVENT
 UID:pw-732318@metrotrains-planned-works
-DTSTAMP:20260622T100000Z
-DTSTART;TZID=Australia/Melbourne:20260622T200000
-DTEND;TZID=Australia/Melbourne:20260624T230000
+DTSTAMP:20260622T103000Z
+DTSTART;TZID=Australia/Melbourne:20260622T203000
+DTEND;TZID=Australia/Melbourne:20260622T230000
+RRULE:FREQ=DAILY;COUNT=3
 SUMMARY:🚌 Frankston Buses replace trains between Caulfield and Mordiallo
- c
-DESCRIPTION:8pm Monday 22 June to 11pm Wednesday 24 June 2026\nDetails: htt
- ps://www.metrotrains.com.au/planned-works/buses-replace-trains-between-cau
- lfield-and-mordialloc-17/
+ c (8.30pm–last service each night)
+DESCRIPTION:8.30pm to last service each night\, Monday 22 June to Wednesday
+  24 June\nAffected stations: Caulfield\, Glen Huntly\, Ormond\, McKinnon\,
+  Bentleigh\, Patterson\, Moorabbin\, Highett\, Southland\, Cheltenham\, Me
+ ntone\, Parkdale\, Mordialloc\nDetails: https://www.metrotrains.com.au/pla
+ nned-works/buses-replace-trains-between-caulfield-and-mordialloc-17/
 URL:https://www.metrotrains.com.au/planned-works/buses-replace-trains-betwe
  en-caulfield-and-mordialloc-17/
 END:VEVENT
 BEGIN:VEVENT
 UID:pw-732320@metrotrains-planned-works
-DTSTAMP:20260626T100000Z
-DTSTART;TZID=Australia/Melbourne:20260626T200000
+DTSTAMP:20260626T103000Z
+DTSTART;TZID=Australia/Melbourne:20260626T203000
 DTEND;TZID=Australia/Melbourne:20260628T230000
 SUMMARY:🚌 Frankston Buses replace trains between South Yarra and Mordial
- loc
-DESCRIPTION:8pm Friday 26 June to 11pm Sunday 28 June 2026\nDetails: https:
- //www.metrotrains.com.au/planned-works/buses-replace-trains-between-south-
- yarra-and-mordialloc-5/
+ loc (8.30pm Fri – last service Sun)
+DESCRIPTION:8.30pm Friday 26 June to last service Sunday 28 June\nAffected 
+ stations: South Yarra\, Hawksburn\, Toorak\, Armadale\, Malvern\, Caulfiel
+ d\, Glen Huntly\, Ormond\, McKinnon\, Bentleigh\, Patterson\, Moorabbin\, 
+ Highett\, Southland\, Cheltenham\, Mentone\, Parkdale\, Mordialloc\nDetail
+ s: https://www.metrotrains.com.au/planned-works/buses-replace-trains-betwe
+ en-south-yarra-and-mordialloc-5/
 URL:https://www.metrotrains.com.au/planned-works/buses-replace-trains-betwe
  en-south-yarra-and-mordialloc-5/
 END:VEVENT

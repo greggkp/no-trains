@@ -44,6 +44,13 @@ DATETIME_TEXT_RE = re.compile(
     re.IGNORECASE,
 )
 
+TIME_RE = re.compile(r"midnight|midday|noon|\d{1,2}(?:[.:]\d{2})?\s*[ap]m", re.IGNORECASE)
+HEADLINE_END_RE = re.compile(
+    r"\bto\s+(?P<end>last service|" + TIME_RE.pattern + ")", re.IGNORECASE
+)
+PATTERNS_ATTR_RE = re.compile(r"data-patterns='([^']+)'")
+HEADLINE_DIV_RE = re.compile(r'class="pw__single-top">(.*?)</div>', re.DOTALL)
+
 VTIMEZONE = """\
 BEGIN:VTIMEZONE
 TZID:Australia/Melbourne
@@ -125,6 +132,60 @@ def strip_html(text):
     return html.unescape(re.sub(r"<[^>]+>", "", text)).strip()
 
 
+def fetch_detail(link):
+    """Scrape a planned-works detail page for precise times and stations.
+
+    Returns (headline, station_groups): the headline is wording like
+    '8.30pm to last service each night, Monday 22 June to Wednesday 24 June',
+    and station_groups is a list of (label, [station, ...]) tuples.
+    """
+    request = urllib.request.Request(link, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        page = response.read().decode("utf-8", errors="replace")
+
+    headline = None
+    headline_match = HEADLINE_DIV_RE.search(page)
+    if headline_match:
+        text = strip_html(re.sub(r"<[^>]+>", " ", headline_match.group(1)))
+        headline = re.sub(r"\s+", " ", text).strip() or None
+
+    station_groups = []
+    patterns_match = PATTERNS_ATTR_RE.search(page)
+    if patterns_match:
+        patterns = json.loads(html.unescape(patterns_match.group(1)))
+        for line_block in patterns:
+            for line_name, groups in line_block.items():
+                for group in groups:
+                    label = (
+                        f"{line_name} — {group['title']}"
+                        if len(patterns) > 1 or len(groups) > 1
+                        else ""
+                    )
+                    station_groups.append((label, group.get("stations", [])))
+
+    return headline, station_groups
+
+
+def parse_headline_times(headline):
+    """Pull (start_time, end_time) out of a detail-page headline.
+
+    Either may be None: the start when no time is present, the end when the
+    page says 'last service' (or nothing parseable).
+    """
+    start_match = TIME_RE.search(headline)
+    start = parse_time(start_match.group(0)) if start_match else None
+    end = None
+    end_match = HEADLINE_END_RE.search(headline)
+    if end_match and end_match.group("end").lower() != "last service":
+        end = parse_time(end_match.group("end"))
+    return start, end
+
+
+def format_time(moment):
+    text = moment.strftime("%I.%M%p" if moment.minute else "%I%p").lower()
+    return text.lstrip("0")
+
+
 def escape_ics(text):
     return (
         text.replace("\\", "\\\\")
@@ -158,29 +219,74 @@ def build_event(entry):
     title = strip_html(entry["titleHTML"])
     link = entry.get("extendedProps", {}).get("link", "")
     date_text = entry["dateTimeText"].strip()
+    nightly = "at-night" in entry["classNames"]
 
-    description_parts = [date_text]
+    headline, station_groups = None, []
+    if link:
+        try:
+            headline, station_groups = fetch_detail(link)
+        except (OSError, ValueError, KeyError) as error:
+            print(f"warning: pw-{entry['id']}: detail page failed: {error}",
+                  file=sys.stderr)
+
+    description_parts = [headline or date_text]
+    for label, stations in station_groups:
+        name = f"Affected stations ({label})" if label else "Affected stations"
+        description_parts.append(f"{name}: {', '.join(stations)}")
     if link:
         description_parts.append(f"Details: {link}")
 
+    rrule = None
     try:
         start, end = parse_datetime_text(date_text)
+        head_start, head_end = (
+            parse_headline_times(headline) if headline else (None, None)
+        )
+        # The detail page is more precise than the feed (e.g. 8.30pm vs 8pm).
+        if head_start:
+            start = start.replace(hour=head_start.hour, minute=head_start.minute)
+        ends_last_service = bool(
+            headline and not head_end and "last service" in headline.lower()
+        )
+
+        if nightly:
+            # Trains still run during the day: one event per night instead of
+            # a single block spanning the whole period.
+            night_end = head_end or end.timetz().replace(tzinfo=None)
+            wraps = night_end <= start.time()
+            first_night_end = datetime.datetime.combine(
+                start.date() + datetime.timedelta(days=1 if wraps else 0),
+                night_end,
+                tzinfo=MELBOURNE,
+            )
+            nights = max(1, (end.date() - start.date()).days + (0 if wraps else 1))
+            if nights > 1:
+                rrule = f"RRULE:FREQ=DAILY;COUNT={nights}"
+            end = first_night_end
+            end_label = "last service" if ends_last_service else format_time(end)
+            time_suffix = f"{format_time(start)}–{end_label} each night"
+        else:
+            if head_end:
+                end = end.replace(hour=head_end.hour, minute=head_end.minute)
+            end_label = "last service" if ends_last_service else format_time(end)
+            time_suffix = f"{format_time(start)} {start:%a} – {end_label} {end:%a}"
+
         dtstart = f"DTSTART;TZID=Australia/Melbourne:{format_local(start)}"
         dtend = f"DTEND;TZID=Australia/Melbourne:{format_local(end)}"
         stamp = start.astimezone(datetime.timezone.utc)
+        summary = f"🚌 {title} ({time_suffix})"
     except ValueError as error:
         # Keep the entry rather than dropping it: fall back to the all-day
         # range from the feed's start/end fields (end is exclusive).
         print(f"warning: pw-{entry['id']}: {error}; using all-day fallback",
               file=sys.stderr)
-        start_date = entry["start"].replace("-", "")
-        end_date = entry["end"].replace("-", "")
-        dtstart = f"DTSTART;VALUE=DATE:{start_date}"
-        dtend = f"DTEND;VALUE=DATE:{end_date}"
+        dtstart = f"DTSTART;VALUE=DATE:{entry['start'].replace('-', '')}"
+        dtend = f"DTEND;VALUE=DATE:{entry['end'].replace('-', '')}"
         stamp = datetime.datetime.strptime(entry["start"], "%Y-%m-%d").replace(
             tzinfo=datetime.timezone.utc
         )
         description_parts.append("(Exact times unavailable; showing whole days.)")
+        summary = f"🚌 {title}"
 
     lines = [
         "BEGIN:VEVENT",
@@ -189,7 +295,11 @@ def build_event(entry):
         f"DTSTAMP:{stamp.strftime('%Y%m%dT%H%M%SZ')}",
         dtstart,
         dtend,
-        f"SUMMARY:{escape_ics('🚌 ' + title)}",
+    ]
+    if rrule:
+        lines.append(rrule)
+    lines += [
+        f"SUMMARY:{escape_ics(summary)}",
         f"DESCRIPTION:{escape_ics(chr(10).join(description_parts))}",
     ]
     if link:
