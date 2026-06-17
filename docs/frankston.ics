@@ -66,11 +66,15 @@ RRULE:FREQ=DAILY;COUNT=3
 SUMMARY:🚌 Frankston Buses replace trains between Moorabbin and Frankston
   (8.15pm–last service each night)
 DESCRIPTION:8.15pm to last service each night\, Monday 15 June to Wednesday
-  17 June\nAffected stations: Moorabbin\, Highett\, Southland\, Cheltenham\
- , Mentone\, Parkdale\, Mordialloc\, Aspendale\, Edithvale\, Chelsea\, Bonb
- each\, Carrum\, Seaford\, Kananook\, Frankston\nDetails: https://www.metro
- trains.com.au/planned-works/buses-replace-trains-between-moorabbin-and-fra
- nkston-12/
+  17 June\nAffected stations (Frankston — Stopping All Stations): Moorabb
+ in\, Highett\, Southland\, Cheltenham\, Mentone\, Parkdale\, Mordialloc\, 
+ Aspendale\, Edithvale\, Chelsea\, Bonbeach\, Carrum\, Seaford\, Kananook\,
+  Frankston\nAffected stations (Frankston — Stopping All Stations): Mordi
+ alloc\, Aspendale\, Edithvale\, Chelsea\, Bonbeach\, Carrum\, Seaford\, Ka
+ nanook\, Frankston\nAffected stations (Frankston — Limited Express): Moo
+ rabbin\, Aspendale\, Edithvale\, Chelsea\, Bonbeach\, Carrum\, Seaford\, K
+ ananook\, Frankston\nDetails: https://www.metrotrains.com.au/planned-works
+ /buses-replace-trains-between-moorabbin-and-frankston-12/
 URL:https://www.metrotrains.com.au/planned-works/buses-replace-trains-betwe
  en-moorabbin-and-frankston-12/
 END:VEVENT
