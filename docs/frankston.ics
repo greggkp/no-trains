@@ -22,26 +22,6 @@ TZNAME:AEDT
 END:DAYLIGHT
 END:VTIMEZONE
 BEGIN:VEVENT
-UID:pw-732311@metrotrains-planned-works
-DTSTAMP:20260609T103000Z
-DTSTART;TZID=Australia/Melbourne:20260609T203000
-DTEND;TZID=Australia/Melbourne:20260609T230000
-RRULE:FREQ=DAILY;COUNT=2
-SUMMARY:🚌 Frankston Buses replace trains between South Yarra and Moorabb
- in (8.30pm–last service each night)
-DESCRIPTION:8.30pm to last service each night\, Tuesday 9 June and Wednesda
- y 10 June\nAffected stations (Frankston — Stopping All Stations): South 
- Yarra\, Hawksburn\, Toorak\, Armadale\, Malvern\, Caulfield\, Glen Huntly\
- , Ormond\, McKinnon\, Bentleigh\, Patterson\, Moorabbin\nAffected stations
-  (Frankston — Stopping All Stations): South Yarra\, Hawksburn\, Toorak\,
-  Armadale\, Malvern\, Caulfield\nAffected stations (Frankston — Limited 
- Express): McKinnon\, Bentleigh\, Patterson\, Moorabbin\nAffected stations 
- (Frankston — Express): Moorabbin\nDetails: https://www.metrotrains.com.a
- u/planned-works/buses-replace-trains-between-south-yarra-and-moorabbin-11/
-URL:https://www.metrotrains.com.au/planned-works/buses-replace-trains-betwe
- en-south-yarra-and-moorabbin-11/
-END:VEVENT
-BEGIN:VEVENT
 UID:pw-732314@metrotrains-planned-works
 DTSTAMP:20260612T103000Z
 DTSTART;TZID=Australia/Melbourne:20260612T203000
