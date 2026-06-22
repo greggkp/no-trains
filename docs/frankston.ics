@@ -67,10 +67,13 @@ RRULE:FREQ=DAILY;COUNT=3
 SUMMARY:🚌 Frankston Buses replace trains between Caulfield and Mordiallo
  c (8.30pm–last service each night)
 DESCRIPTION:8.30pm to last service each night\, Monday 22 June to Wednesday
-  24 June\nAffected stations: Caulfield\, Glen Huntly\, Ormond\, McKinnon\,
-  Bentleigh\, Patterson\, Moorabbin\, Highett\, Southland\, Cheltenham\, Me
- ntone\, Parkdale\, Mordialloc\nDetails: https://www.metrotrains.com.au/pla
- nned-works/buses-replace-trains-between-caulfield-and-mordialloc-17/
+  24 June\nAffected stations (Frankston — Stopping All Stations): Caulfie
+ ld\, Glen Huntly\, Ormond\, McKinnon\, Bentleigh\, Patterson\, Moorabbin\,
+  Highett\, Southland\, Cheltenham\, Mentone\, Parkdale\, Mordialloc\nAffec
+ ted stations (Frankston — Limited Express): Caulfield\, Moorabbin\, High
+ ett\, Southland\, Cheltenham\, Mentone\, Parkdale\, Mordialloc\nDetails: h
+ ttps://www.metrotrains.com.au/planned-works/buses-replace-trains-between-c
+ aulfield-and-mordialloc-17/
 URL:https://www.metrotrains.com.au/planned-works/buses-replace-trains-betwe
  en-caulfield-and-mordialloc-17/
 END:VEVENT
@@ -82,11 +85,17 @@ DTEND;TZID=Australia/Melbourne:20260628T230000
 SUMMARY:🚌 Frankston Buses replace trains between South Yarra and Mordial
  loc (8.30pm Fri – last service Sun)
 DESCRIPTION:8.30pm Friday 26 June to last service Sunday 28 June\nAffected 
- stations: South Yarra\, Hawksburn\, Toorak\, Armadale\, Malvern\, Caulfiel
- d\, Glen Huntly\, Ormond\, McKinnon\, Bentleigh\, Patterson\, Moorabbin\, 
- Highett\, Southland\, Cheltenham\, Mentone\, Parkdale\, Mordialloc\nDetail
- s: https://www.metrotrains.com.au/planned-works/buses-replace-trains-betwe
- en-south-yarra-and-mordialloc-5/
+ stations (Frankston — Stopping All Stations): South Yarra\, Hawksburn\, 
+ Toorak\, Armadale\, Malvern\, Caulfield\, Glen Huntly\, Ormond\, McKinnon\
+ , Bentleigh\, Patterson\, Moorabbin\nAffected stations (Frankston — Limi
+ ted Express): Caulfield\, Moorabbin\, Highett\, Southland\, Cheltenham\, M
+ entone\, Parkdale\, Mordialloc\nAffected stations (Frankston — Limited E
+ xpress): Moorabbin\, Mordialloc\nAffected stations (Frankston — Stopping
+  All Stations): South Yarra\, Hawksburn\, Toorak\, Armadale\, Malvern\, Ca
+ ulfield\, Glen Huntly\, Ormond\, McKinnon\, Bentleigh\, Patterson\, Moorab
+ bin\, Highett\, Southland\, Cheltenham\, Mentone\, Parkdale\, Mordialloc\n
+ Details: https://www.metrotrains.com.au/planned-works/buses-replace-trains
+ -between-south-yarra-and-mordialloc-5/
 URL:https://www.metrotrains.com.au/planned-works/buses-replace-trains-betwe
  en-south-yarra-and-mordialloc-5/
 END:VEVENT
