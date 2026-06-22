@@ -22,22 +22,6 @@ TZNAME:AEDT
 END:DAYLIGHT
 END:VTIMEZONE
 BEGIN:VEVENT
-UID:pw-732314@metrotrains-planned-works
-DTSTAMP:20260612T103000Z
-DTSTART;TZID=Australia/Melbourne:20260612T203000
-DTEND;TZID=Australia/Melbourne:20260614T230000
-SUMMARY:🚌 Frankston Buses replace trains between South Yarra and Caulfie
- ld (8.30pm Fri – last service Sun)
-DESCRIPTION:8.30pm Friday 12 June to last service Sunday 14 June\nAffected 
- stations (Frankston — Stopping All Stations): South Yarra\, Hawksburn\, 
- Toorak\, Armadale\, Malvern\, Caulfield\nAffected stations (Cranbourne —
-  Stopping All Stations): \nAffected stations (Pakenham — Stopping All St
- ations): \nDetails: https://www.metrotrains.com.au/planned-works/buses-rep
- lace-trains-between-south-yarra-and-caulfield-18/
-URL:https://www.metrotrains.com.au/planned-works/buses-replace-trains-betwe
- en-south-yarra-and-caulfield-18/
-END:VEVENT
-BEGIN:VEVENT
 UID:pw-732316@metrotrains-planned-works
 DTSTAMP:20260615T101500Z
 DTSTART;TZID=Australia/Melbourne:20260615T201500
