@@ -22,27 +22,6 @@ TZNAME:AEDT
 END:DAYLIGHT
 END:VTIMEZONE
 BEGIN:VEVENT
-UID:pw-732316@metrotrains-planned-works
-DTSTAMP:20260615T101500Z
-DTSTART;TZID=Australia/Melbourne:20260615T201500
-DTEND;TZID=Australia/Melbourne:20260615T230000
-RRULE:FREQ=DAILY;COUNT=3
-SUMMARY:🚌 Frankston Buses replace trains between Moorabbin and Frankston
-  (8.15pm–last service each night)
-DESCRIPTION:8.15pm to last service each night\, Monday 15 June to Wednesday
-  17 June\nAffected stations (Frankston — Stopping All Stations): Moorabb
- in\, Highett\, Southland\, Cheltenham\, Mentone\, Parkdale\, Mordialloc\, 
- Aspendale\, Edithvale\, Chelsea\, Bonbeach\, Carrum\, Seaford\, Kananook\,
-  Frankston\nAffected stations (Frankston — Stopping All Stations): Mordi
- alloc\, Aspendale\, Edithvale\, Chelsea\, Bonbeach\, Carrum\, Seaford\, Ka
- nanook\, Frankston\nAffected stations (Frankston — Limited Express): Moo
- rabbin\, Aspendale\, Edithvale\, Chelsea\, Bonbeach\, Carrum\, Seaford\, K
- ananook\, Frankston\nDetails: https://www.metrotrains.com.au/planned-works
- /buses-replace-trains-between-moorabbin-and-frankston-12/
-URL:https://www.metrotrains.com.au/planned-works/buses-replace-trains-betwe
- en-moorabbin-and-frankston-12/
-END:VEVENT
-BEGIN:VEVENT
 UID:pw-732318@metrotrains-planned-works
 DTSTAMP:20260622T103000Z
 DTSTART;TZID=Australia/Melbourne:20260622T203000
