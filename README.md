@@ -43,10 +43,27 @@ hyphenated line names used by the Metro site: `alamein`, `belgrave`,
   recurring event per night instead of one block; continuous works keep a
   single block with the times in the event title. Entries whose times can't
   be parsed fall back to all-day events rather than being dropped.
-- `.github/workflows/update-calendar.yml` — cron job that regenerates the
-  feeds and commits only when something changed.
+- `.github/workflows/update-calendar.yml` — cron job that runs the tests,
+  regenerates the feeds, and commits only when something changed. If generation
+  crashes, or quietly degrades (entries fall back to all-day events or the
+  upstream detail pages stop parsing — usually a sign the unofficial feed
+  changed), it opens a tracking GitHub Issue (label `calendar-pipeline`) and
+  auto-closes it on the next clean run.
 - `docs/` — the generated feeds plus a small index page, published with
   GitHub Pages (deploy from branch `main`, folder `/docs`).
+
+## Development
+
+No dependencies — everything is the Python standard library (3.12 in CI).
+
+```bash
+python generate_ics.py   # regenerate docs/*.ics locally
+python -m unittest       # run the test suite
+```
+
+The test suite (`test_generate_ics.py`) covers the parsing and ICS-formatting
+logic and runs in CI before the feeds are regenerated. When you change how
+upstream wording is parsed, add a test case for the new wording.
 
 The upstream endpoint is unofficial (it's what the Metro website itself
 calls), so it may change without notice. If it breaks, the official fallback
