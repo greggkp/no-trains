@@ -1,0 +1,21 @@
+version: 2
+# Security-only posture (mirrors greggkp/pep-oracle): `open-pull-requests-limit: 0`
+# disables routine version-bump PRs while leaving Dependabot *security* updates
+# (CVE-driven) on. Security fixes are grouped into a single PR per ecosystem so
+# multiple CVEs => one CI run / one merge. Dependabot auto-labels every PR
+# `dependencies`; the auto-merge workflow keys off the Dependabot actor.
+#
+# This repo is standard-library only — no pyproject/uv.lock, requirements.txt,
+# or package.json — so the uv/pip/npm ecosystems pep-oracle tracks don't apply
+# here. The only versioned external deps are the GitHub Actions in .github/workflows.
+updates:
+  # GitHub Actions used by tests.yml / update-calendar.yml
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+    groups:
+      actions-security:
+        applies-to: security-updates
+        patterns: ["*"]

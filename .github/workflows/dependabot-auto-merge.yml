@@ -1,0 +1,28 @@
+name: Dependabot auto-merge
+
+# Mirrors greggkp/pep-oracle: Dependabot opens a (security) PR, the Tests
+# workflow runs on it, and the PR is merged into main once that check passes.
+# Enabling GitHub's auto-merge here makes the merge wait for required status
+# checks rather than merging immediately.
+#
+# One-time repo settings this relies on (can't be set from a committed file):
+#   - Settings → General → "Allow auto-merge" must be enabled.
+#   - Branch protection on `main` must require the "test" status check, so
+#     auto-merge waits for Tests to pass before merging.
+
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Enable auto-merge
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
