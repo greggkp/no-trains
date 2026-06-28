@@ -37,6 +37,19 @@ GitHub Pages.
   detail-page headline. The headline overrides the feed when both are present.
 - Parsing is best-effort: an entry whose times can't be parsed falls back to an
   all-day event (logged to stderr) rather than being dropped.
+- Generation health is tracked in a `Stats` object and surfaced by `report()`:
+  it counts fallback events and detail-page failures, writes `GITHUB_OUTPUT`
+  (`degraded`, counts) under Actions, and emits a `::warning::` when degraded.
+  `Stats`/`report()` must not influence feed bytes — keep them side-channel only.
+
+## Failure notifications
+
+The `update` workflow opens/updates a tracking GitHub Issue (label
+`calendar-pipeline`) on **hard failure** (the generate step crashes) or **soft
+degradation** (`degraded=true` — entries fell back or detail scrapes failed),
+and **auto-closes** it on the next clean run. Soft degradation does not block
+publishing: the feed still commits, the issue just flags drift. This needs
+`issues: write` permission (already set). No external services or secrets.
 
 ## Running
 

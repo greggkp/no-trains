@@ -8,6 +8,8 @@ Run with: python -m unittest
 """
 
 import datetime
+import os
+import tempfile
 import unittest
 from zoneinfo import ZoneInfo
 
@@ -250,6 +252,73 @@ class BuildCalendarTests(unittest.TestCase):
         self.assertIn("BEGIN:VEVENT", cal)
         # Every line must be CRLF-terminated.
         self.assertNotIn("\r\r", cal)
+
+
+class StatsTests(unittest.TestCase):
+    def _entry(self, **overrides):
+        entry = {
+            "id": "42",
+            "titleHTML": "Frankston Line",
+            "classNames": ["frankston"],
+            "dateTimeText": "8pm Friday 26 June to 11pm Sunday 28 June 2026",
+            "type": "bus-replacement",
+            "extendedProps": {},
+            "start": "2026-06-26",
+            "end": "2026-06-29",
+        }
+        entry.update(overrides)
+        return entry
+
+    def test_healthy_run_not_degraded(self):
+        stats = g.Stats()
+        g.build_event(self._entry(), stats)
+        self.assertEqual(stats.total_events, 1)
+        self.assertEqual(stats.fallback_events, 0)
+        self.assertEqual(stats.detail_failures, 0)
+        self.assertFalse(stats.degraded)
+
+    def test_fallback_counts_as_degraded(self):
+        stats = g.Stats()
+        g.build_event(self._entry(dateTimeText="see website"), stats)
+        self.assertEqual(stats.fallback_events, 1)
+        self.assertTrue(stats.degraded)
+
+    def test_detail_failure_counts_as_degraded(self):
+        def boom(link):
+            raise OSError("upstream changed")
+
+        stats = g.Stats()
+        entry = self._entry(extendedProps={"link": "https://example.test/pw"})
+        original = g.fetch_detail
+        g.fetch_detail = boom
+        try:
+            g.build_event(entry, stats)
+        finally:
+            g.fetch_detail = original
+        self.assertEqual(stats.events_with_link, 1)
+        self.assertEqual(stats.detail_failures, 1)
+        self.assertTrue(stats.degraded)
+
+    def test_report_writes_github_output(self):
+        stats = g.Stats(
+            total_events=5, events_with_link=5, fallback_events=2, detail_failures=1
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            out_path = os.path.join(tmp, "out")
+            old = os.environ.get("GITHUB_OUTPUT")
+            os.environ["GITHUB_OUTPUT"] = out_path
+            try:
+                g.report(stats)
+            finally:
+                if old is None:
+                    del os.environ["GITHUB_OUTPUT"]
+                else:
+                    os.environ["GITHUB_OUTPUT"] = old
+            with open(out_path, encoding="utf-8") as handle:
+                written = handle.read()
+        self.assertIn("fallback_events=2", written)
+        self.assertIn("detail_failures=1", written)
+        self.assertIn("degraded=true", written)
 
 
 if __name__ == "__main__":

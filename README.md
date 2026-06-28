@@ -43,8 +43,12 @@ hyphenated line names used by the Metro site: `alamein`, `belgrave`,
   recurring event per night instead of one block; continuous works keep a
   single block with the times in the event title. Entries whose times can't
   be parsed fall back to all-day events rather than being dropped.
-- `.github/workflows/update-calendar.yml` — cron job that regenerates the
-  feeds and commits only when something changed.
+- `.github/workflows/update-calendar.yml` — cron job that runs the tests,
+  regenerates the feeds, and commits only when something changed. If generation
+  crashes, or quietly degrades (entries fall back to all-day events or the
+  upstream detail pages stop parsing — usually a sign the unofficial feed
+  changed), it opens a tracking GitHub Issue (label `calendar-pipeline`) and
+  auto-closes it on the next clean run.
 - `docs/` — the generated feeds plus a small index page, published with
   GitHub Pages (deploy from branch `main`, folder `/docs`).
 

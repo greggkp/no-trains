@@ -8,9 +8,11 @@ GitHub Pages and subscribing to from Google/Apple Calendar.
 import datetime
 import html
 import json
+import os
 import re
 import sys
 import urllib.request
+from dataclasses import dataclass
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -69,6 +71,27 @@ TZOFFSETTO:+1100
 TZNAME:AEDT
 END:DAYLIGHT
 END:VTIMEZONE"""
+
+
+@dataclass
+class Stats:
+    """Counts of how generation went, for failure/degradation alerting.
+
+    Generation can "succeed" (write a valid feed) while quietly degrading
+    because the unofficial upstream changed its wording or markup: entries
+    stop parsing and fall back to all-day events, or detail pages stop
+    yielding headlines/stations. Those are the early-warning signs the
+    scraper is drifting, so we count them and surface them to CI.
+    """
+
+    total_events: int = 0
+    events_with_link: int = 0
+    fallback_events: int = 0
+    detail_failures: int = 0
+
+    @property
+    def degraded(self) -> bool:
+        return self.fallback_events > 0 or self.detail_failures > 0
 
 
 def fetch_feed():
@@ -215,7 +238,9 @@ def format_local(moment):
     return moment.strftime("%Y%m%dT%H%M%S")
 
 
-def build_event(entry):
+def build_event(entry, stats=None):
+    if stats is not None:
+        stats.total_events += 1
     title = strip_html(entry["titleHTML"])
     link = entry.get("extendedProps", {}).get("link", "")
     date_text = entry["dateTimeText"].strip()
@@ -223,9 +248,13 @@ def build_event(entry):
 
     headline, station_groups = None, []
     if link:
+        if stats is not None:
+            stats.events_with_link += 1
         try:
             headline, station_groups = fetch_detail(link)
         except (OSError, ValueError, KeyError) as error:
+            if stats is not None:
+                stats.detail_failures += 1
             print(f"warning: pw-{entry['id']}: detail page failed: {error}",
                   file=sys.stderr)
 
@@ -278,6 +307,8 @@ def build_event(entry):
     except ValueError as error:
         # Keep the entry rather than dropping it: fall back to the all-day
         # range from the feed's start/end fields (end is exclusive).
+        if stats is not None:
+            stats.fallback_events += 1
         print(f"warning: pw-{entry['id']}: {error}; using all-day fallback",
               file=sys.stderr)
         dtstart = f"DTSTART;VALUE=DATE:{entry['start'].replace('-', '')}"
@@ -324,7 +355,7 @@ def select_entries(entries, line):
     return sorted(selected.values(), key=lambda e: (e["start"], e["id"]))
 
 
-def build_calendar(entries, line):
+def build_calendar(entries, line, stats=None):
     line_name = line.replace("-", " ").title()
     lines = [
         "BEGIN:VCALENDAR",
@@ -336,19 +367,57 @@ def build_calendar(entries, line):
         *VTIMEZONE.splitlines(),
     ]
     for entry in entries:
-        lines.extend(build_event(entry))
+        lines.extend(build_event(entry, stats))
     lines.append("END:VCALENDAR")
     return "\r\n".join(fold(l) for l in lines) + "\r\n"
+
+
+def report(stats):
+    """Surface generation health for alerting.
+
+    Always logs a summary. When running under GitHub Actions, writes
+    machine-readable outputs (consumed by the workflow to open/close a
+    tracking issue) and a step-summary line, and emits a `::warning::`
+    annotation if degraded. Does not affect the generated feeds, so feed
+    output stays deterministic regardless of environment.
+    """
+    summary = (
+        f"events={stats.total_events} fallback={stats.fallback_events} "
+        f"detail_failures={stats.detail_failures}/{stats.events_with_link} "
+        f"degraded={stats.degraded}"
+    )
+    print(summary, file=sys.stderr)
+
+    github_output = os.environ.get("GITHUB_OUTPUT")
+    if github_output:
+        with open(github_output, "a", encoding="utf-8") as handle:
+            handle.write(f"total_events={stats.total_events}\n")
+            handle.write(f"fallback_events={stats.fallback_events}\n")
+            handle.write(f"detail_failures={stats.detail_failures}\n")
+            handle.write(f"degraded={'true' if stats.degraded else 'false'}\n")
+
+    step_summary = os.environ.get("GITHUB_STEP_SUMMARY")
+    if step_summary:
+        with open(step_summary, "a", encoding="utf-8") as handle:
+            handle.write(f"### Calendar generation\n\n- {summary}\n")
+
+    if stats.degraded:
+        print(f"::warning::Calendar generation degraded: {summary}")
 
 
 def main():
     feed = fetch_feed()
     OUTPUT_DIR.mkdir(exist_ok=True)
+    stats = Stats()
     for line in LINES:
         selected = select_entries(feed, line)
         output_path = OUTPUT_DIR / f"{line}.ics"
-        output_path.write_text(build_calendar(selected, line), encoding="utf-8")
+        output_path.write_text(
+            build_calendar(selected, line, stats), encoding="utf-8"
+        )
         print(f"{output_path.name}: {len(selected)} events")
+    report(stats)
+    return stats
 
 
 if __name__ == "__main__":
