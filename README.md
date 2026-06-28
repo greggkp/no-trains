@@ -48,6 +48,19 @@ hyphenated line names used by the Metro site: `alamein`, `belgrave`,
 - `docs/` — the generated feeds plus a small index page, published with
   GitHub Pages (deploy from branch `main`, folder `/docs`).
 
+## Development
+
+No dependencies — everything is the Python standard library (3.12 in CI).
+
+```bash
+python generate_ics.py   # regenerate docs/*.ics locally
+python -m unittest       # run the test suite
+```
+
+The test suite (`test_generate_ics.py`) covers the parsing and ICS-formatting
+logic and runs in CI before the feeds are regenerated. When you change how
+upstream wording is parsed, add a test case for the new wording.
+
 The upstream endpoint is unofficial (it's what the Metro website itself
 calls), so it may change without notice. If it breaks, the official fallback
 is Transport Victoria's [GTFS-Realtime Service Alerts](https://opendata.transport.vic.gov.au/dataset/gtfs-realtime).
