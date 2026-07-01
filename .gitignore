@@ -1,2 +1,4 @@
 __pycache__/
 .claude/
+# Generated feeds are deployed to GitHub Pages by CI, not committed.
+docs/*.ics
