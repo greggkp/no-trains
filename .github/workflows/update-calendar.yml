@@ -23,9 +23,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
 
@@ -39,9 +39,9 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
 
@@ -49,15 +49,15 @@ jobs:
         id: generate
         run: python generate_ics.py
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:
           path: docs
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
 
       # Open/update a tracking issue when the pipeline fails hard (any step —
       # generation crash or deploy failure) or quietly degrades (entries fell
@@ -66,15 +66,23 @@ jobs:
       # next clean run.
       - name: Notify on failure or degradation
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          # Passed via env rather than interpolated into the script so output
+          # values can never be parsed as JavaScript.
+          JOB_STATUS: ${{ job.status }}
+          DEGRADED: ${{ steps.generate.outputs.degraded }}
+          TOTAL_EVENTS: ${{ steps.generate.outputs.total_events }}
+          FALLBACK_EVENTS: ${{ steps.generate.outputs.fallback_events }}
+          DETAIL_FAILURES: ${{ steps.generate.outputs.detail_failures }}
         with:
           script: |
             const label = 'calendar-pipeline';
-            const failed = '${{ job.status }}' === 'failure';
-            const degraded = '${{ steps.generate.outputs.degraded }}' === 'true';
-            const total = '${{ steps.generate.outputs.total_events }}';
-            const fallback = '${{ steps.generate.outputs.fallback_events }}';
-            const detail = '${{ steps.generate.outputs.detail_failures }}';
+            const failed = process.env.JOB_STATUS === 'failure';
+            const degraded = process.env.DEGRADED === 'true';
+            const total = process.env.TOTAL_EVENTS;
+            const fallback = process.env.FALLBACK_EVENTS;
+            const detail = process.env.DETAIL_FAILURES;
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
             try {
