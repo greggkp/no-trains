@@ -21,7 +21,7 @@ FEED_URL = (
     "?action=mt_get_planned_works"
 )
 USER_AGENT = "no-trains-calendar/1.0 (personal bus-replacement calendar)"
-LINES = ["frankston"]
+LINES = ["frankston", "sandringham"]
 WORK_TYPE = "bus-replacement"
 OUTPUT_DIR = Path(__file__).parent / "docs"
 MELBOURNE = ZoneInfo("Australia/Melbourne")
