@@ -7,9 +7,17 @@ on:
   push:
     branches: [main]
 
+# Feeds are published straight to GitHub Pages as a build artifact — nothing
+# is pushed back to main, so branch protection on main can stay strict.
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
   issues: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   test:
@@ -27,6 +35,9 @@ jobs:
   update:
     needs: test
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -38,30 +49,28 @@ jobs:
         id: generate
         run: python generate_ics.py
 
-      - name: Commit if changed
-        if: steps.generate.outcome == 'success'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Update calendar feeds"
-            git push
-          fi
+      - uses: actions/configure-pages@v5
 
-      # Open/update a tracking issue when generation crashes (hard failure) or
-      # quietly degrades (entries fell back to all-day, or detail scrapes
-      # failed — usually a sign the unofficial upstream changed). Closes the
-      # issue automatically on the next clean run.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      # Open/update a tracking issue when the pipeline fails hard (any step —
+      # generation crash or deploy failure) or quietly degrades (entries fell
+      # back to all-day, or detail scrapes failed — usually a sign the
+      # unofficial upstream changed). Closes the issue automatically on the
+      # next clean run.
       - name: Notify on failure or degradation
         if: always()
         uses: actions/github-script@v7
         with:
           script: |
             const label = 'calendar-pipeline';
-            const failed = '${{ steps.generate.outcome }}' === 'failure';
+            const failed = '${{ job.status }}' === 'failure';
             const degraded = '${{ steps.generate.outputs.degraded }}' === 'true';
             const total = '${{ steps.generate.outputs.total_events }}';
             const fallback = '${{ steps.generate.outputs.fallback_events }}';
@@ -84,7 +93,7 @@ jobs:
 
             if (failed || degraded) {
               const kind = failed
-                ? 'Hard failure — generation crashed (see logs).'
+                ? 'Hard failure — generation or deploy failed (see logs).'
                 : 'Soft degradation — entries fell back to all-day or detail scrapes failed.';
               const body = [
                 `**${kind}**`, '',

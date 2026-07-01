@@ -8,8 +8,9 @@ Guidance for working in this repository.
 replacement works** on Melbourne Metro train lines. A GitHub Actions cron job
 runs `generate_ics.py` every six hours, which scrapes the (unofficial) JSON feed
 behind metrotrains.com.au/planned-works, writes one `.ics` per line into
-`docs/`, and commits only when the output changed. `docs/` is published with
-GitHub Pages.
+`docs/`, and deploys `docs/` straight to GitHub Pages as a build artifact.
+Nothing is committed back to `main` (its branch protection stays strict); the
+`.ics` files are gitignored.
 
 ## Layout
 
@@ -19,16 +20,18 @@ GitHub Pages.
 - `test_generate_ics.py` — `unittest` suite covering the pure parsing/formatting
   logic. No network access; the one detail-page test monkeypatches
   `fetch_detail`.
-- `docs/` — generated `*.ics` feeds plus `index.html`. The `.ics` files are
-  build artifacts committed by CI; don't hand-edit them.
+- `docs/` — `index.html` plus the generated `*.ics` feeds. The `.ics` files
+  are build artifacts (gitignored, deployed to Pages by CI); don't hand-edit
+  or commit them.
 - `.github/workflows/update-calendar.yml` — the cron generator job (and tests).
 
 ## Conventions
 
 - **No third-party dependencies.** Tests use stdlib `unittest`, not pytest.
 - Output must be **deterministic**: identical upstream data must produce a
-  byte-identical file, otherwise CI commits noise every six hours. `DTSTAMP` is
-  derived from event data, not `now()`, for this reason. Preserve that property.
+  byte-identical file, so calendar clients don't see spurious updates and
+  feed diffs stay meaningful. `DTSTAMP` is derived from event data, not
+  `now()`, for this reason. Preserve that property.
 - ICS output follows RFC 5545: CRLF line endings, 75-octet line folding
   (`fold()`), and value escaping (`escape_ics()`).
 - All event times are Melbourne-local (`Australia/Melbourne`); a hand-written
@@ -45,11 +48,12 @@ GitHub Pages.
 ## Failure notifications
 
 The `update` workflow opens/updates a tracking GitHub Issue (label
-`calendar-pipeline`) on **hard failure** (the generate step crashes) or **soft
-degradation** (`degraded=true` — entries fell back or detail scrapes failed),
-and **auto-closes** it on the next clean run. Soft degradation does not block
-publishing: the feed still commits, the issue just flags drift. This needs
-`issues: write` permission (already set). No external services or secrets.
+`calendar-pipeline`) on **hard failure** (any step fails — generation crash or
+Pages deploy failure) or **soft degradation** (`degraded=true` — entries fell
+back or detail scrapes failed), and **auto-closes** it on the next clean run.
+Soft degradation does not block publishing: the feed still deploys, the issue
+just flags drift. This needs `issues: write` permission (already set). No
+external services or secrets.
 
 ## Running
 

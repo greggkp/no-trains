@@ -45,13 +45,15 @@ hyphenated line names used by the Metro site: `alamein`, `belgrave`,
   single block with the times in the event title. Entries whose times can't
   be parsed fall back to all-day events rather than being dropped.
 - `.github/workflows/update-calendar.yml` — cron job that runs the tests,
-  regenerates the feeds, and commits only when something changed. If generation
-  crashes, or quietly degrades (entries fall back to all-day events or the
-  upstream detail pages stop parsing — usually a sign the unofficial feed
-  changed), it opens a tracking GitHub Issue (label `calendar-pipeline`) and
-  auto-closes it on the next clean run.
-- `docs/` — the generated feeds plus a small index page, published with
-  GitHub Pages (deploy from branch `main`, folder `/docs`).
+  regenerates the feeds, and deploys them straight to GitHub Pages (nothing is
+  committed back to the repo). If the pipeline fails, or quietly degrades
+  (entries fall back to all-day events or the upstream detail pages stop
+  parsing — usually a sign the unofficial feed changed), it opens a tracking
+  GitHub Issue (label `calendar-pipeline`) and auto-closes it on the next
+  clean run.
+- `docs/` — a small index page plus the generated feeds (gitignored build
+  artifacts), published with GitHub Pages (Settings → Pages → Source:
+  **GitHub Actions**).
 
 ## Development
 
