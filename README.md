@@ -26,7 +26,9 @@ Edit `LINES` in `generate_ics.py`, e.g.:
 LINES = ["frankston", "belgrave"]
 ```
 
-and add a link to `docs/index.html`. Valid line slugs are the lowercase,
+and add a link to `docs/index.html`. To get PTV API times for the new line,
+also add its route id to `PTV_ROUTE_IDS` (from a signed
+`GET /v3/routes?route_types=0`). Valid line slugs are the lowercase,
 hyphenated line names used by the Metro site: `alamein`, `belgrave`,
 `craigieburn`, `cranbourne`, `flemington`, `frankston`, `glen-waverley`,
 `hurstbridge`, `lilydale`, `mernda`, `pakenham`, `sandringham`, `showgrounds`,
@@ -39,18 +41,24 @@ hyphenated line names used by the Metro site: `alamein`, `belgrave`,
   human-readable times (e.g. *"8pm Friday 26 June to 11pm Sunday 28 June
   2026"*) into Melbourne-local event times, and writes RFC 5545 ICS files.
   Each work's detail page is also scraped for the precise start time and the
-  affected station list, which goes in the event description. Night works
+  affected station list, which goes in the event description. If the optional
+  `PTV_DEV_ID`/`PTV_API_KEY` environment variables are set (free keys from
+  [PTV](https://www.vic.gov.au/public-transport-timetable-api)), event times
+  come from the official PTV Timetable API's planned disruptions instead —
+  exact timestamps, including a real end time where the wording only says
+  *"last service"*. Without keys, text parsing alone still works. Night works
   (buses only after the evening shutdown, trains during the day) become a
   recurring event per night instead of one block; continuous works keep a
   single block with the times in the event title. Entries whose times can't
   be parsed fall back to all-day events rather than being dropped.
 - `.github/workflows/update-calendar.yml` — cron job that runs the tests,
   regenerates the feeds, and deploys them straight to GitHub Pages (nothing is
-  committed back to the repo). If the pipeline fails, or quietly degrades
-  (entries fall back to all-day events or the upstream detail pages stop
-  parsing — usually a sign the unofficial feed changed), it opens a tracking
-  GitHub Issue (label `calendar-pipeline`) and auto-closes it on the next
-  clean run.
+  committed back to the repo). The PTV keys are provided as the Actions
+  secrets `PTV_DEV_ID` and `PTV_API_KEY`. If the pipeline fails, or quietly
+  degrades (entries fall back to all-day events, the upstream detail pages
+  stop parsing, or the PTV API errors or disagrees with the Metro feed), it
+  opens a tracking GitHub Issue (label `calendar-pipeline`) and auto-closes
+  it on the next clean run.
 - `docs/` — a small index page plus the generated feeds (gitignored build
   artifacts), published with GitHub Pages (Settings → Pages → Source:
   **GitHub Actions**).
