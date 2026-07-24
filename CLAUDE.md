@@ -36,13 +36,23 @@ Nothing is committed back to `main` (its branch protection stays strict); the
   (`fold()`), and value escaping (`escape_ics()`).
 - All event times are Melbourne-local (`Australia/Melbourne`); a hand-written
   `VTIMEZONE` is embedded so clients render times correctly.
-- Times come from two sources: the feed's `dateTimeText` and the more precise
-  detail-page headline. The headline overrides the feed when both are present.
+- Times come from three sources, in order of authority: the official **PTV
+  Timetable API** (planned disruptions matched to feed entries by line +
+  date overlap; exact UTC timestamps, resolves "last service" to a real end
+  time), the detail-page headline, and the feed's `dateTimeText`. PTV is
+  optional — enabled only when `PTV_DEV_ID`/`PTV_API_KEY` env vars are set
+  (Actions secrets in CI); without them the text sources work as before.
+  PTV route ids live in `PTV_ROUTE_IDS`. PTV requests are HMAC-SHA1 signed
+  (`ptv_signed_url`) — still stdlib only.
 - Parsing is best-effort: an entry whose times can't be parsed falls back to an
   all-day event (logged to stderr) rather than being dropped.
 - Generation health is tracked in a `Stats` object and surfaced by `report()`:
-  it counts fallback events and detail-page failures, writes `GITHUB_OUTPUT`
-  (`degraded`, counts) under Actions, and emits a `::warning::` when degraded.
+  it counts fallback events, detail-page failures, and PTV health
+  (matched/unmatched/mismatches/errors), writes `GITHUB_OUTPUT` (`degraded`,
+  counts) under Actions, and emits a `::warning::` when degraded. PTV
+  `unmatched` is informational only (PTV publishes works later than Metro
+  lists them); `errors` and `mismatches` (sources disagree on a start by
+  more than `PTV_MISMATCH_TOLERANCE`) count as degraded.
   `Stats`/`report()` must not influence feed bytes — keep them side-channel only.
 
 ## Failure notifications
@@ -53,7 +63,8 @@ Pages deploy failure) or **soft degradation** (`degraded=true` — entries fell
 back or detail scrapes failed), and **auto-closes** it on the next clean run.
 Soft degradation does not block publishing: the feed still deploys, the issue
 just flags drift. This needs `issues: write` permission (already set). No
-external services or secrets.
+external notification services; the only secrets are the optional
+`PTV_DEV_ID`/`PTV_API_KEY` pair for the PTV Timetable API.
 
 ## Running
 
@@ -73,4 +84,7 @@ committing.
 ## Adding a line
 
 Add the slug to `LINES` in `generate_ics.py` and a link in `docs/index.html`.
-Valid slugs are the lowercase hyphenated Metro line names (see README).
+Valid slugs are the lowercase hyphenated Metro line names (see README). For
+PTV-sourced times, also add the line's PTV route id to `PTV_ROUTE_IDS`
+(look it up with a signed `GET /v3/routes?route_types=0`); without it the
+line still works from text parsing alone.

@@ -92,6 +92,101 @@ class ParseHeadlineTimesTests(unittest.TestCase):
         self.assertEqual(g.parse_headline_times("buses replace trains"), (None, None))
 
 
+def ptv_disruption(**overrides):
+    """A PTV /v3/disruptions disruption, shaped like the real API response."""
+    disruption = {
+        "disruption_id": 366096,
+        "title": (
+            "Frankston Line: Buses replace trains from 8.30pm Friday 24 July "
+            "to last service Sunday 26 July 2026"
+        ),
+        "description": "From 8.30pm Friday 24 July to last service Sunday 26 July",
+        "disruption_type": "Planned Works",
+        "disruption_status": "Planned",
+        "from_date": "2026-07-24T10:30:00Z",
+        "to_date": "2026-07-26T17:00:00Z",
+    }
+    disruption.update(overrides)
+    return disruption
+
+
+class PtvSignedUrlTests(unittest.TestCase):
+    def test_signature_is_stable(self):
+        # Pins the exact signing construction (path?params&devid, HMAC-SHA1
+        # uppercase hex) that has been verified against the live API.
+        url = g.ptv_signed_url(
+            "/v3/disruptions/route/6",
+            {"disruption_status": "planned"},
+            "300001",
+            "fake-key",
+        )
+        self.assertEqual(
+            url,
+            "https://timetableapi.ptv.vic.gov.au/v3/disruptions/route/6"
+            "?disruption_status=planned&devid=300001"
+            "&signature=776C023C5E85E9E87B3F4F29E5D141D07E2C0A58",
+        )
+
+
+class ParsePtvSpansTests(unittest.TestCase):
+    def test_bus_replacement_converted_to_melbourne(self):
+        payload = {"disruptions": {"metro_train": [ptv_disruption()]}}
+        spans = g.parse_ptv_spans(payload)
+        # July is AEST (UTC+10): 10:30Z is 8.30pm, and the "last service"
+        # end 17:00Z resolves to 3am the following morning.
+        self.assertEqual(spans, [(
+            datetime.datetime(2026, 7, 24, 20, 30, tzinfo=MELBOURNE),
+            datetime.datetime(2026, 7, 27, 3, 0, tzinfo=MELBOURNE),
+        )])
+
+    def test_non_bus_replacement_filtered_out(self):
+        payload = {"disruptions": {"metro_train": [ptv_disruption(
+            title="Frankston Line: No City Loop trains from 9pm each night"
+        )]}}
+        self.assertEqual(g.parse_ptv_spans(payload), [])
+
+    def test_missing_to_date_skipped(self):
+        payload = {"disruptions": {"metro_train": [ptv_disruption(to_date=None)]}}
+        self.assertEqual(g.parse_ptv_spans(payload), [])
+
+    def test_no_metro_train_key(self):
+        self.assertEqual(g.parse_ptv_spans({"disruptions": {}}), [])
+
+
+class MatchPtvSpanTests(unittest.TestCase):
+    SPAN = (
+        datetime.datetime(2026, 7, 24, 20, 30, tzinfo=MELBOURNE),
+        datetime.datetime(2026, 7, 27, 3, 0, tzinfo=MELBOURNE),
+    )
+
+    def _entry(self, start, end):
+        return {"start": start, "end": end}
+
+    def test_overlap_matches(self):
+        # Feed end date is exclusive; the span ending 3am Monday 27th still
+        # overlaps an entry listed as 24th–27th.
+        entry = self._entry("2026-07-24", "2026-07-27")
+        self.assertEqual(g.match_ptv_span(entry, [self.SPAN]), self.SPAN)
+
+    def test_no_overlap(self):
+        entry = self._entry("2026-09-01", "2026-09-03")
+        self.assertIsNone(g.match_ptv_span(entry, [self.SPAN]))
+
+    def test_ambiguous_overlap_matches_nothing(self):
+        other = (
+            datetime.datetime(2026, 7, 25, 20, 0, tzinfo=MELBOURNE),
+            datetime.datetime(2026, 7, 26, 23, 0, tzinfo=MELBOURNE),
+        )
+        entry = self._entry("2026-07-24", "2026-07-27")
+        self.assertIsNone(g.match_ptv_span(entry, [self.SPAN, other]))
+
+    def test_duplicate_spans_still_match(self):
+        entry = self._entry("2026-07-24", "2026-07-27")
+        self.assertEqual(
+            g.match_ptv_span(entry, [self.SPAN, self.SPAN]), self.SPAN
+        )
+
+
 class FormatTimeTests(unittest.TestCase):
     def test_no_leading_zero(self):
         moment = datetime.datetime(2026, 6, 26, 8, 0, tzinfo=MELBOURNE)
@@ -232,6 +327,81 @@ class BuildEventTests(unittest.TestCase):
         self.assertIn("URL:https://example.test/pw", text)
 
 
+class BuildEventPtvTests(unittest.TestCase):
+    """PTV API timestamps, when matched, supersede all text-derived times."""
+
+    # 8.30pm Friday 26 June to 3am Monday 29 June 2026, Melbourne time —
+    # the shape PTV publishes for "8pm Friday to last service Sunday".
+    SPAN = (
+        datetime.datetime(2026, 6, 26, 20, 30, tzinfo=MELBOURNE),
+        datetime.datetime(2026, 6, 29, 3, 0, tzinfo=MELBOURNE),
+    )
+
+    def _entry(self, **overrides):
+        entry = {
+            "id": "42",
+            "titleHTML": "Frankston Line",
+            "classNames": ["frankston"],
+            "dateTimeText": "8pm Friday 26 June to 11pm Sunday 28 June 2026",
+            "type": "bus-replacement",
+            "extendedProps": {},
+            "start": "2026-06-26",
+            "end": "2026-06-29",
+        }
+        entry.update(overrides)
+        return entry
+
+    def test_ptv_times_used_for_continuous_event(self):
+        stats = g.Stats()
+        text = "\n".join(g.build_event(self._entry(), stats, self.SPAN))
+        self.assertIn("DTSTART;TZID=Australia/Melbourne:20260626T203000", text)
+        self.assertIn("DTEND;TZID=Australia/Melbourne:20260629T030000", text)
+        # "Last service" becomes a concrete end time in the summary.
+        self.assertIn("SUMMARY:🚌 Frankston Line (8.30pm Fri – 3am Mon)", text)
+        self.assertEqual(stats.ptv_matched, 1)
+        self.assertEqual(stats.ptv_mismatches, 0)
+        self.assertFalse(stats.degraded)
+
+    def test_ptv_times_used_for_nightly_event(self):
+        span = (
+            datetime.datetime(2026, 6, 26, 21, 0, tzinfo=MELBOURNE),
+            datetime.datetime(2026, 6, 29, 3, 0, tzinfo=MELBOURNE),
+        )
+        entry = self._entry(classNames=["frankston", "at-night"])
+        text = "\n".join(g.build_event(entry, None, span))
+        self.assertIn("DTSTART;TZID=Australia/Melbourne:20260626T210000", text)
+        self.assertIn("DTEND;TZID=Australia/Melbourne:20260627T030000", text)
+        self.assertIn("RRULE:FREQ=DAILY;COUNT=3", text)
+        self.assertIn("9pm–3am each night", text)
+
+    def test_ptv_rescues_unparseable_text(self):
+        stats = g.Stats()
+        entry = self._entry(dateTimeText="check the website for times")
+        text = "\n".join(g.build_event(entry, stats, self.SPAN))
+        self.assertIn("DTSTART;TZID=Australia/Melbourne:20260626T203000", text)
+        self.assertNotIn("whole days", text)
+        self.assertEqual(stats.fallback_events, 0)
+        self.assertFalse(stats.degraded)
+
+    def test_ptv_disagreement_flagged_but_ptv_wins(self):
+        # A start a day away from the feed's is drift, not rounding.
+        span = (
+            datetime.datetime(2026, 6, 27, 20, 30, tzinfo=MELBOURNE),
+            datetime.datetime(2026, 6, 29, 3, 0, tzinfo=MELBOURNE),
+        )
+        stats = g.Stats()
+        text = "\n".join(g.build_event(self._entry(), stats, span))
+        self.assertIn("DTSTART;TZID=Australia/Melbourne:20260627T203000", text)
+        self.assertEqual(stats.ptv_mismatches, 1)
+        self.assertTrue(stats.degraded)
+
+    def test_rounding_difference_is_not_a_mismatch(self):
+        # Feed says 8pm, PTV says 8.30pm: within tolerance.
+        stats = g.Stats()
+        g.build_event(self._entry(), stats, self.SPAN)
+        self.assertEqual(stats.ptv_mismatches, 0)
+
+
 class BuildCalendarTests(unittest.TestCase):
     def test_wraps_events(self):
         entry = {
@@ -252,6 +422,49 @@ class BuildCalendarTests(unittest.TestCase):
         self.assertIn("BEGIN:VEVENT", cal)
         # Every line must be CRLF-terminated.
         self.assertNotIn("\r\r", cal)
+
+    def test_ptv_unmatched_counted_only_when_ptv_available(self):
+        entry = {
+            "id": "42",
+            "titleHTML": "Frankston Line",
+            "classNames": ["frankston"],
+            "dateTimeText": "8pm Friday 26 June to 11pm Sunday 28 June 2026",
+            "type": "bus-replacement",
+            "extendedProps": {},
+            "start": "2026-06-26",
+            "end": "2026-06-29",
+        }
+        # PTV available but no disruption overlaps: unmatched (reported,
+        # not degraded — PTV publishes works later than the Metro site).
+        stats = g.Stats()
+        g.build_calendar([entry], "frankston", stats, ptv_spans=[])
+        self.assertEqual(stats.ptv_unmatched, 1)
+        self.assertFalse(stats.degraded)
+        # PTV unavailable entirely: nothing to match against.
+        stats = g.Stats()
+        g.build_calendar([entry], "frankston", stats, ptv_spans=None)
+        self.assertEqual(stats.ptv_unmatched, 0)
+
+    def test_matched_span_flows_through_to_event(self):
+        entry = {
+            "id": "42",
+            "titleHTML": "Frankston Line",
+            "classNames": ["frankston"],
+            "dateTimeText": "8pm Friday 26 June to 11pm Sunday 28 June 2026",
+            "type": "bus-replacement",
+            "extendedProps": {},
+            "start": "2026-06-26",
+            "end": "2026-06-29",
+        }
+        span = (
+            datetime.datetime(2026, 6, 26, 20, 30, tzinfo=MELBOURNE),
+            datetime.datetime(2026, 6, 29, 3, 0, tzinfo=MELBOURNE),
+        )
+        stats = g.Stats()
+        cal = g.build_calendar([entry], "frankston", stats, ptv_spans=[span])
+        self.assertIn("DTSTART;TZID=Australia/Melbourne:20260626T203000", cal)
+        self.assertEqual(stats.ptv_matched, 1)
+        self.assertEqual(stats.ptv_unmatched, 0)
 
 
 class StatsTests(unittest.TestCase):
@@ -299,9 +512,15 @@ class StatsTests(unittest.TestCase):
         self.assertEqual(stats.detail_failures, 1)
         self.assertTrue(stats.degraded)
 
+    def test_ptv_errors_count_as_degraded(self):
+        self.assertTrue(g.Stats(ptv_errors=1).degraded)
+        self.assertTrue(g.Stats(ptv_mismatches=1).degraded)
+        self.assertFalse(g.Stats(ptv_unmatched=3).degraded)
+
     def test_report_writes_github_output(self):
         stats = g.Stats(
-            total_events=5, events_with_link=5, fallback_events=2, detail_failures=1
+            total_events=5, events_with_link=5, fallback_events=2, detail_failures=1,
+            ptv_matched=3, ptv_unmatched=2, ptv_errors=1,
         )
         with tempfile.TemporaryDirectory() as tmp:
             out_path = os.path.join(tmp, "out")
@@ -318,6 +537,9 @@ class StatsTests(unittest.TestCase):
                 written = handle.read()
         self.assertIn("fallback_events=2", written)
         self.assertIn("detail_failures=1", written)
+        self.assertIn("ptv_matched=3", written)
+        self.assertIn("ptv_unmatched=2", written)
+        self.assertIn("ptv_errors=1", written)
         self.assertIn("degraded=true", written)
 
 

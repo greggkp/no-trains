@@ -47,6 +47,11 @@ jobs:
 
       - name: Generate ICS feeds
         id: generate
+        # PTV keys are optional: without them the generator falls back to
+        # parsing the feed's human-readable times.
+        env:
+          PTV_DEV_ID: ${{ secrets.PTV_DEV_ID }}
+          PTV_API_KEY: ${{ secrets.PTV_API_KEY }}
         run: python generate_ics.py
 
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
@@ -77,6 +82,8 @@ jobs:
           TOTAL_EVENTS: ${{ steps.generate.outputs.total_events }}
           FALLBACK_EVENTS: ${{ steps.generate.outputs.fallback_events }}
           DETAIL_FAILURES: ${{ steps.generate.outputs.detail_failures }}
+          PTV_MISMATCHES: ${{ steps.generate.outputs.ptv_mismatches }}
+          PTV_ERRORS: ${{ steps.generate.outputs.ptv_errors }}
         with:
           script: |
             const label = 'calendar-pipeline';
@@ -85,6 +92,8 @@ jobs:
             const total = process.env.TOTAL_EVENTS;
             const fallback = process.env.FALLBACK_EVENTS;
             const detail = process.env.DETAIL_FAILURES;
+            const ptvMismatches = process.env.PTV_MISMATCHES;
+            const ptvErrors = process.env.PTV_ERRORS;
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
             try {
@@ -104,13 +113,15 @@ jobs:
             if (failed || degraded) {
               const kind = failed
                 ? 'Hard failure — generation or deploy failed (see logs).'
-                : 'Soft degradation — entries fell back to all-day or detail scrapes failed.';
+                : 'Soft degradation — entries fell back to all-day, detail scrapes failed, or the PTV API errored/disagreed with the feed.';
               const body = [
                 `**${kind}**`, '',
                 `- Run: ${runUrl}`,
                 `- total_events: ${total || 'n/a'}`,
                 `- fallback_events: ${fallback || 'n/a'}`,
                 `- detail_failures: ${detail || 'n/a'}`,
+                `- ptv_mismatches: ${ptvMismatches || 'n/a'}`,
+                `- ptv_errors: ${ptvErrors || 'n/a'}`,
                 '',
                 'The unofficial Metro planned-works feed/markup may have changed.',
               ].join('\n');
