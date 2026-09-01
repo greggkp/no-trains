@@ -66,6 +66,11 @@ just flags drift. This needs `issues: write` permission (already set). No
 external notification services; the only secrets are the optional
 `PTV_DEV_ID`/`PTV_API_KEY` pair for the PTV Timetable API.
 
+This only detects runs that fail, not runs that stop happening (GitHub
+disables `schedule` in public repos after 60 days without activity, and cron
+delivery is jittery). Options, measurements and a recommendation are written
+up in `MONITORING.md`; read it before changing monitoring.
+
 ## Running
 
 ```bash
