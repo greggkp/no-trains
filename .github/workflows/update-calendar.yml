@@ -1,11 +1,6 @@
 name: Update calendar
 
-on:
-  schedule:
-    - cron: "47 */6 * * *"
-  workflow_dispatch:
-  push:
-    branches: [main]
+on: workflow_dispatch
 
 # Feeds are published straight to GitHub Pages as a build artifact — nothing
 # is pushed back to main, so branch protection on main can stay strict.
@@ -35,6 +30,13 @@ jobs:
   update:
     needs: test
     runs-on: ubuntu-latest
+    outputs:
+      degraded: ${{ steps.generate.outputs.degraded }}
+      total_events: ${{ steps.generate.outputs.total_events }}
+      fallback_events: ${{ steps.generate.outputs.fallback_events }}
+      detail_failures: ${{ steps.generate.outputs.detail_failures }}
+      ptv_mismatches: ${{ steps.generate.outputs.ptv_mismatches }}
+      ptv_errors: ${{ steps.generate.outputs.ptv_errors }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -66,28 +68,32 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
 
-      # Open/update a tracking issue when the pipeline fails hard (any step —
-      # generation crash or deploy failure) or quietly degrades (entries fell
-      # back to all-day, or detail scrapes failed — usually a sign the
-      # unofficial upstream changed). Closes the issue automatically on the
-      # next clean run.
+  # Keep notification separate from `update`: if the test job fails, `update`
+  # is skipped, but this job still runs and reports the hard failure.
+  notify:
+    needs: [test, update]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
       - name: Notify on failure or degradation
-        if: always()
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         env:
           # Passed via env rather than interpolated into the script so output
           # values can never be parsed as JavaScript.
-          JOB_STATUS: ${{ job.status }}
-          DEGRADED: ${{ steps.generate.outputs.degraded }}
-          TOTAL_EVENTS: ${{ steps.generate.outputs.total_events }}
-          FALLBACK_EVENTS: ${{ steps.generate.outputs.fallback_events }}
-          DETAIL_FAILURES: ${{ steps.generate.outputs.detail_failures }}
-          PTV_MISMATCHES: ${{ steps.generate.outputs.ptv_mismatches }}
-          PTV_ERRORS: ${{ steps.generate.outputs.ptv_errors }}
+          TEST_RESULT: ${{ needs.test.result }}
+          UPDATE_RESULT: ${{ needs.update.result }}
+          DEGRADED: ${{ needs.update.outputs.degraded }}
+          TOTAL_EVENTS: ${{ needs.update.outputs.total_events }}
+          FALLBACK_EVENTS: ${{ needs.update.outputs.fallback_events }}
+          DETAIL_FAILURES: ${{ needs.update.outputs.detail_failures }}
+          PTV_MISMATCHES: ${{ needs.update.outputs.ptv_mismatches }}
+          PTV_ERRORS: ${{ needs.update.outputs.ptv_errors }}
         with:
           script: |
             const label = 'calendar-pipeline';
-            const failed = process.env.JOB_STATUS === 'failure';
+            const testResult = process.env.TEST_RESULT;
+            const updateResult = process.env.UPDATE_RESULT;
+            const failed = testResult !== 'success' || updateResult !== 'success';
             const degraded = process.env.DEGRADED === 'true';
             const total = process.env.TOTAL_EVENTS;
             const fallback = process.env.FALLBACK_EVENTS;
@@ -112,11 +118,13 @@ jobs:
 
             if (failed || degraded) {
               const kind = failed
-                ? 'Hard failure — generation or deploy failed (see logs).'
+                ? 'Hard failure — tests, generation, or deploy failed (see logs).'
                 : 'Soft degradation — entries fell back to all-day, detail scrapes failed, or the PTV API errored/disagreed with the feed.';
               const body = [
                 `**${kind}**`, '',
                 `- Run: ${runUrl}`,
+                `- test: ${testResult || 'n/a'}`,
+                `- update: ${updateResult || 'n/a'}`,
                 `- total_events: ${total || 'n/a'}`,
                 `- fallback_events: ${fallback || 'n/a'}`,
                 `- detail_failures: ${detail || 'n/a'}`,
