@@ -1,0 +1,12 @@
+[Unit]
+Description=Trigger no-trains calendar refresh
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=gregg
+EnvironmentFile=/etc/no-trains-refresh.env
+ExecStart=/usr/bin/gh workflow run update-calendar.yml --repo greggkp/no-trains --ref main
+TimeoutStartSec=60
+UMask=0077
