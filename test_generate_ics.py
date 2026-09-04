@@ -7,7 +7,9 @@ with link-less entries or by monkeypatching fetch_detail.
 Run with: python -m unittest
 """
 
+import contextlib
 import datetime
+import io
 import os
 import tempfile
 import unittest
@@ -535,6 +537,30 @@ class StatsTests(unittest.TestCase):
         self.assertIn("BEGIN:VCALENDAR", cal)
         self.assertNotIn("BEGIN:VEVENT", cal)
 
+    @staticmethod
+    def _report(stats, out_path):
+        """Run report() with GITHUB_OUTPUT pointed at out_path.
+
+        Output is captured, not printed: report() emits a `::warning::`
+        workflow command for a degraded run, and letting the test's fixture
+        numbers reach the real stdout posts a bogus "degraded" annotation on
+        every CI run. The stderr summary is swallowed for the same reason.
+        Returns the captured stdout so it can be asserted on.
+        """
+        buffer = io.StringIO()
+        old = os.environ.get("GITHUB_OUTPUT")
+        os.environ["GITHUB_OUTPUT"] = out_path
+        try:
+            with contextlib.redirect_stdout(buffer), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                g.report(stats)
+        finally:
+            if old is None:
+                del os.environ["GITHUB_OUTPUT"]
+            else:
+                os.environ["GITHUB_OUTPUT"] = old
+        return buffer.getvalue()
+
     def test_report_writes_github_output(self):
         stats = g.Stats(
             total_events=5, events_with_link=5, fallback_events=2, detail_failures=1,
@@ -542,23 +568,28 @@ class StatsTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as tmp:
             out_path = os.path.join(tmp, "out")
-            old = os.environ.get("GITHUB_OUTPUT")
-            os.environ["GITHUB_OUTPUT"] = out_path
-            try:
-                g.report(stats)
-            finally:
-                if old is None:
-                    del os.environ["GITHUB_OUTPUT"]
-                else:
-                    os.environ["GITHUB_OUTPUT"] = old
+            printed = self._report(stats, out_path)
             with open(out_path, encoding="utf-8") as handle:
                 written = handle.read()
+        self.assertIn("::warning::Calendar generation degraded", printed)
         self.assertIn("fallback_events=2", written)
         self.assertIn("detail_failures=1", written)
         self.assertIn("ptv_matched=3", written)
         self.assertIn("ptv_unmatched=2", written)
         self.assertIn("ptv_errors=1", written)
         self.assertIn("degraded=true", written)
+
+    def test_report_warns_only_when_degraded(self):
+        """A clean run must not emit a `::warning::` workflow command.
+
+        The annotation is the pipeline's soft-degradation signal, so it has
+        to stay rare enough to mean something.
+        """
+        stats = g.Stats(total_events=5, events_with_link=5, ptv_matched=5)
+        self.assertFalse(stats.degraded)
+        with tempfile.TemporaryDirectory() as tmp:
+            printed = self._report(stats, os.path.join(tmp, "out"))
+        self.assertNotIn("::warning::", printed)
 
 
 if __name__ == "__main__":
