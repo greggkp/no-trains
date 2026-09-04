@@ -94,9 +94,10 @@ class Stats:
 
     Generation can "succeed" (write a valid feed) while quietly degrading
     because the unofficial upstream changed its wording or markup: entries
-    stop parsing and fall back to all-day events, or detail pages stop
-    yielding headlines/stations. Those are the early-warning signs the
-    scraper is drifting, so we count them and surface them to CI.
+    stop parsing and fall back to all-day events, detail pages stop yielding
+    headlines/stations, or the feed stops yielding entries at all. Those are
+    the early-warning signs the scraper is drifting, so we count them and
+    surface them to CI.
     """
 
     total_events: int = 0
@@ -116,7 +117,14 @@ class Stats:
     @property
     def degraded(self) -> bool:
         return (
-            self.fallback_events > 0
+            # Zero events across every line. Most likely the upstream JSON
+            # changed shape and the entry list now parses as empty instead
+            # of raising; the alternative is that Metro genuinely has no
+            # planned works, which is indistinguishable from here. Without
+            # this check an empty feed publishes empty calendars and still
+            # reports a clean run.
+            self.total_events == 0
+            or self.fallback_events > 0
             or self.detail_failures > 0
             or self.ptv_errors > 0
             or self.ptv_mismatches > 0

@@ -56,7 +56,9 @@ are gitignored.
   counts) under Actions, and emits a `::warning::` when degraded. PTV
   `unmatched` is informational only (PTV publishes works later than Metro
   lists them); `errors` and `mismatches` (sources disagree on a start by
-  more than `PTV_MISMATCH_TOLERANCE`) count as degraded.
+  more than `PTV_MISMATCH_TOLERANCE`) count as degraded. A run that produces
+  **zero events** is degraded too: an upstream shape change that parses to an
+  empty entry list would otherwise publish empty feeds and report a clean run.
   `Stats`/`report()` must not influence feed bytes — keep them side-channel only.
 
 ## Failure notifications
@@ -64,7 +66,8 @@ are gitignored.
 The `update` workflow opens/updates a tracking GitHub Issue (label
 `calendar-pipeline`) on **hard failure** (any step fails — generation crash or
 Pages deploy failure) or **soft degradation** (`degraded=true` — entries fell
-back or detail scrapes failed), and **auto-closes** it on the next clean run.
+back, detail scrapes failed, or the run produced no events at all), and
+**auto-closes** it on the next clean run.
 Soft degradation does not block publishing: the feed still deploys, the issue
 just flags drift. This needs `issues: write` permission (already set). If the
 optional `HEALTHCHECK_URL` secret is configured, the notification job also

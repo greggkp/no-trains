@@ -513,9 +513,27 @@ class StatsTests(unittest.TestCase):
         self.assertTrue(stats.degraded)
 
     def test_ptv_errors_count_as_degraded(self):
-        self.assertTrue(g.Stats(ptv_errors=1).degraded)
-        self.assertTrue(g.Stats(ptv_mismatches=1).degraded)
-        self.assertFalse(g.Stats(ptv_unmatched=3).degraded)
+        # total_events=1 isolates the PTV signal: a zero-event run is
+        # degraded on its own (see test_zero_events_counts_as_degraded).
+        self.assertTrue(g.Stats(total_events=1, ptv_errors=1).degraded)
+        self.assertTrue(g.Stats(total_events=1, ptv_mismatches=1).degraded)
+        self.assertFalse(g.Stats(total_events=1, ptv_unmatched=3).degraded)
+
+    def test_zero_events_counts_as_degraded(self):
+        # An upstream shape change that yields no entries would otherwise
+        # write empty calendars and report a clean run.
+        self.assertTrue(g.Stats().degraded)
+        self.assertFalse(g.Stats(total_events=1).degraded)
+
+    def test_empty_feed_degrades_a_whole_run(self):
+        stats = g.Stats()
+        cal = g.build_calendar([], "frankston", stats)
+        self.assertEqual(stats.total_events, 0)
+        self.assertTrue(stats.degraded)
+        # Still a valid, deployable calendar — degradation does not block
+        # publishing, it just flags drift.
+        self.assertIn("BEGIN:VCALENDAR", cal)
+        self.assertNotIn("BEGIN:VEVENT", cal)
 
     def test_report_writes_github_output(self):
         stats = g.Stats(
