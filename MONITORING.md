@@ -10,8 +10,8 @@ Every dispatched workflow reports its own health:
 
 - a hard failure in tests, generation, deployment, or the heartbeat request opens a
   `calendar-pipeline` issue;
-- soft degradation from parser fallbacks, detail-page failures, or PTV API
-  drift opens the same issue;
+- soft degradation from parser fallbacks, detail-page failures, PTV API
+  drift, or a run that produced no events at all opens the same issue;
 - the next clean run closes the issue.
 
 The systemd service fails locally if GitHub rejects the dispatch because of a
