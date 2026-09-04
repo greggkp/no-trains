@@ -75,13 +75,37 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
+      # Optional dead-man switch. A missing secret makes this a no-op, so
+      # forks and local setup do not need a Healthchecks.io account.
+      - name: Report pipeline heartbeat
+        id: heartbeat
+        if: always()
+        env:
+          HEALTHCHECK_URL: ${{ secrets.HEALTHCHECK_URL }}
+          TEST_RESULT: ${{ needs.test.result }}
+          UPDATE_RESULT: ${{ needs.update.result }}
+          DEGRADED: ${{ needs.update.outputs.degraded }}
+        run: |
+          if [[ -z "$HEALTHCHECK_URL" ]]; then
+            echo "HEALTHCHECK_URL is not configured; skipping heartbeat"
+            exit 0
+          fi
+
+          endpoint="${HEALTHCHECK_URL%/}"
+          if [[ "$TEST_RESULT" != success || "$UPDATE_RESULT" != success || "$DEGRADED" == true ]]; then
+            endpoint="$endpoint/fail"
+          fi
+          curl --fail --silent --show-error --max-time 10 --retry 3 "$endpoint"
+
       - name: Notify on failure or degradation
+        if: always()
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         env:
           # Passed via env rather than interpolated into the script so output
           # values can never be parsed as JavaScript.
           TEST_RESULT: ${{ needs.test.result }}
           UPDATE_RESULT: ${{ needs.update.result }}
+          HEARTBEAT_RESULT: ${{ steps.heartbeat.outcome }}
           DEGRADED: ${{ needs.update.outputs.degraded }}
           TOTAL_EVENTS: ${{ needs.update.outputs.total_events }}
           FALLBACK_EVENTS: ${{ needs.update.outputs.fallback_events }}
@@ -93,7 +117,10 @@ jobs:
             const label = 'calendar-pipeline';
             const testResult = process.env.TEST_RESULT;
             const updateResult = process.env.UPDATE_RESULT;
-            const failed = testResult !== 'success' || updateResult !== 'success';
+            const heartbeatResult = process.env.HEARTBEAT_RESULT;
+            const failed = testResult !== 'success'
+              || updateResult !== 'success'
+              || heartbeatResult !== 'success';
             const degraded = process.env.DEGRADED === 'true';
             const total = process.env.TOTAL_EVENTS;
             const fallback = process.env.FALLBACK_EVENTS;
@@ -118,13 +145,14 @@ jobs:
 
             if (failed || degraded) {
               const kind = failed
-                ? 'Hard failure — tests, generation, or deploy failed (see logs).'
+                ? 'Hard failure — tests, generation, deploy, or heartbeat failed (see logs).'
                 : 'Soft degradation — entries fell back to all-day, detail scrapes failed, or the PTV API errored/disagreed with the feed.';
               const body = [
                 `**${kind}**`, '',
                 `- Run: ${runUrl}`,
                 `- test: ${testResult || 'n/a'}`,
                 `- update: ${updateResult || 'n/a'}`,
+                `- heartbeat: ${heartbeatResult || 'n/a'}`,
                 `- total_events: ${total || 'n/a'}`,
                 `- fallback_events: ${fallback || 'n/a'}`,
                 `- detail_failures: ${detail || 'n/a'}`,

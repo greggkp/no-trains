@@ -66,12 +66,14 @@ The `update` workflow opens/updates a tracking GitHub Issue (label
 Pages deploy failure) or **soft degradation** (`degraded=true` — entries fell
 back or detail scrapes failed), and **auto-closes** it on the next clean run.
 Soft degradation does not block publishing: the feed still deploys, the issue
-just flags drift. This needs `issues: write` permission (already set). There
-are no external notification services. The workflow's only secrets are the
-optional `PTV_DEV_ID`/`PTV_API_KEY` pair for the PTV Timetable API.
+just flags drift. This needs `issues: write` permission (already set). If the
+optional `HEALTHCHECK_URL` secret is configured, the notification job also
+pings Healthchecks.io on clean runs and reports hard/degraded runs there.
+`MONITORING.md` documents the remaining dead-man risk and setup.
 
 The local systemd service uses a separate fine-grained GitHub token, stored in
 `/etc/no-trains-refresh.env`, only to dispatch the workflow. Never commit it.
+The PTV credentials and heartbeat URL remain GitHub Actions secrets.
 
 ## Running
 

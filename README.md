@@ -60,7 +60,8 @@ hyphenated line names used by the Metro site: `alamein`, `belgrave`,
   degrades (entries fall back to all-day events, the upstream detail pages
   stop parsing, or the PTV API errors or disagrees with the Metro feed), it
   opens a tracking GitHub Issue (label `calendar-pipeline`) and auto-closes
-  it on the next clean run.
+  it on the next clean run. An optional Healthchecks.io heartbeat detects when
+  externally dispatched runs stop happening entirely; see `MONITORING.md`.
 - `docs/` — a small index page plus the generated feeds (gitignored build
   artifacts), published with GitHub Pages (Settings → Pages → Source:
   **GitHub Actions**).
