@@ -5,12 +5,13 @@ Guidance for working in this repository.
 ## What this is
 
 `no-trains` generates subscribable `.ics` calendar feeds of planned **bus
-replacement works** on Melbourne Metro train lines. A GitHub Actions cron job
-runs `generate_ics.py` every six hours, which scrapes the (unofficial) JSON feed
-behind metrotrains.com.au/planned-works, writes one `.ics` per line into
-`docs/`, and deploys `docs/` straight to GitHub Pages as a build artifact.
-Nothing is committed back to `main` (its branch protection stays strict); the
-`.ics` files are gitignored.
+replacement works** on Melbourne Metro train lines. A systemd timer on the
+driver machine dispatches a GitHub Actions workflow every six hours. The
+workflow runs `generate_ics.py`, which scrapes the (unofficial) JSON feed behind
+metrotrains.com.au/planned-works, writes one `.ics` per line into `docs/`, and
+deploys `docs/` straight to GitHub Pages as a build artifact. Nothing is
+committed back to `main` (its branch protection stays strict); the `.ics` files
+are gitignored.
 
 ## Layout
 
@@ -23,7 +24,10 @@ Nothing is committed back to `main` (its branch protection stays strict); the
 - `docs/` — `index.html` plus the generated `*.ics` feeds. The `.ics` files
   are build artifacts (gitignored, deployed to Pages by CI); don't hand-edit
   or commit them.
-- `.github/workflows/update-calendar.yml` — the cron generator job (and tests).
+- `.github/workflows/update-calendar.yml` — the dispatch-only generator job
+  (and tests).
+- `ops/` — systemd service/timer and setup instructions for the external
+  six-hour schedule.
 
 ## Conventions
 
@@ -62,9 +66,12 @@ The `update` workflow opens/updates a tracking GitHub Issue (label
 Pages deploy failure) or **soft degradation** (`degraded=true` — entries fell
 back or detail scrapes failed), and **auto-closes** it on the next clean run.
 Soft degradation does not block publishing: the feed still deploys, the issue
-just flags drift. This needs `issues: write` permission (already set). No
-external notification services; the only secrets are the optional
-`PTV_DEV_ID`/`PTV_API_KEY` pair for the PTV Timetable API.
+just flags drift. This needs `issues: write` permission (already set). There
+are no external notification services. The workflow's only secrets are the
+optional `PTV_DEV_ID`/`PTV_API_KEY` pair for the PTV Timetable API.
+
+The local systemd service uses a separate fine-grained GitHub token, stored in
+`/etc/no-trains-refresh.env`, only to dispatch the workflow. Never commit it.
 
 This only detects runs that fail, not runs that stop happening (GitHub
 disables `schedule` in public repos after 60 days without activity, and cron

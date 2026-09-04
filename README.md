@@ -3,9 +3,10 @@
 Subscribable calendar feeds of planned **bus replacement works** on Melbourne
 Metro train lines.
 
-A GitHub Actions workflow runs every six hours, fetches the JSON feed that
-powers [metrotrains.com.au/planned-works](https://www.metrotrains.com.au/planned-works/),
-and regenerates one `.ics` file per configured line in `docs/`, served via
+A systemd timer on the driver machine dispatches a GitHub Actions workflow
+every six hours. The workflow fetches the JSON feed that powers
+[metrotrains.com.au/planned-works](https://www.metrotrains.com.au/planned-works/),
+regenerates one `.ics` file per configured line in `docs/`, and deploys it to
 GitHub Pages. Subscribe to a feed URL in Google/Apple Calendar and bus
 replacements appear (and update, and disappear when cancelled) automatically.
 
@@ -51,9 +52,10 @@ hyphenated line names used by the Metro site: `alamein`, `belgrave`,
   recurring event per night instead of one block; continuous works keep a
   single block with the times in the event title. Entries whose times can't
   be parsed fall back to all-day events rather than being dropped.
-- `.github/workflows/update-calendar.yml` — cron job that runs the tests,
-  regenerates the feeds, and deploys them straight to GitHub Pages (nothing is
-  committed back to the repo). The PTV keys are provided as the Actions
+- `.github/workflows/update-calendar.yml` — dispatch-only job that runs the
+  tests, regenerates the feeds, and deploys them straight to GitHub Pages
+  (nothing is committed back to the repo). `ops/no-trains-refresh.timer` on the
+  driver machine owns the schedule. The PTV keys are provided as the Actions
   secrets `PTV_DEV_ID` and `PTV_API_KEY`. If the pipeline fails, or quietly
   degrades (entries fall back to all-day events, the upstream detail pages
   stop parsing, or the PTV API errors or disagrees with the Metro feed), it
@@ -75,6 +77,8 @@ python -m unittest       # run the test suite
 The test suite (`test_generate_ics.py`) covers the parsing and ICS-formatting
 logic and runs in CI before the feeds are regenerated. When you change how
 upstream wording is parsed, add a test case for the new wording.
+
+The external refresh driver is documented in `ops/README.md`.
 
 The upstream endpoint is unofficial (it's what the Metro website itself
 calls), so it may change without notice. If it breaks, the official fallback

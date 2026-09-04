@@ -1,0 +1,10 @@
+[Unit]
+Description=Refresh no-trains calendars every six hours
+
+[Timer]
+OnCalendar=*-*-* 00,06,12,18:47:00 UTC
+Persistent=true
+AccuracySec=1m
+
+[Install]
+WantedBy=timers.target
