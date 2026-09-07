@@ -26,8 +26,10 @@ are gitignored.
   or commit them.
 - `.github/workflows/update-calendar.yml` — the dispatch-only generator job
   (and tests).
-- `ops/` — systemd service/timer and setup instructions for the external
-  six-hour schedule.
+- `ops/` — the external six-hour schedule: systemd service/timer, the
+  `no-trains-refresh.sh` dispatch script (retries, then reports failure to
+  Healthchecks.io), a journald persistence drop-in, and setup instructions.
+  `test_ops_refresh.py` pins the script's behaviour with stub `gh`/`curl`.
 
 ## Conventions
 
@@ -74,9 +76,11 @@ optional `HEALTHCHECK_URL` secret is configured, the notification job also
 pings Healthchecks.io on clean runs and reports hard/degraded runs there.
 `MONITORING.md` documents the remaining dead-man risk and setup.
 
-The local systemd service uses a separate fine-grained GitHub token, stored in
-`/etc/no-trains-refresh.env`, only to dispatch the workflow. Never commit it.
-The PTV credentials and heartbeat URL remain GitHub Actions secrets.
+The local systemd service runs `ops/no-trains-refresh.sh`, which retries the
+dispatch (five attempts, five minutes apart) and reports a final failure to
+Healthchecks.io. Its separate fine-grained GitHub token, and optionally a copy
+of `HEALTHCHECK_URL`, live in `/etc/no-trains-refresh.env`. Never commit
+either. The PTV credentials remain GitHub Actions secrets only.
 
 ## Running
 

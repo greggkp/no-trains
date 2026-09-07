@@ -7,6 +7,9 @@ After=network-online.target
 Type=oneshot
 User=gregg
 EnvironmentFile=/etc/no-trains-refresh.env
-ExecStart=/usr/bin/gh workflow run update-calendar.yml --repo greggkp/no-trains --ref main
-TimeoutStartSec=60
+# Up to 5 attempts, 5 minutes apart (~20 min), then report failure.
+Environment=REFRESH_ATTEMPTS=5 REFRESH_RETRY_DELAY=300
+ExecStart=/usr/local/bin/no-trains-refresh
+# Must cover the whole retry window.
+TimeoutStartSec=30min
 UMask=0077
