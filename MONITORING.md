@@ -14,20 +14,29 @@ Every dispatched workflow reports its own health:
   drift, or a run that produced no events at all opens the same issue;
 - the next clean run closes the issue.
 
-The systemd service fails locally if GitHub rejects the dispatch because of a
-network problem, expired token, disabled workflow, or permission change. Its
-status and logs are available with:
+The local dispatch retries transient failures: `ops/no-trains-refresh.sh`
+makes up to five attempts, five minutes apart, before the service fails.
+A dispatch that still fails (network down, expired token, disabled workflow,
+permission change) is logged locally and, when `HEALTHCHECK_URL` is present
+in `/etc/no-trains-refresh.env`, reported straight to Healthchecks.io as a
+failure so the alert arrives within minutes instead of after the grace
+period. Status and logs:
 
 ```bash
 systemctl status no-trains-refresh.timer no-trains-refresh.service
 journalctl -u no-trains-refresh.service
 ```
 
+Raspberry Pi OS keeps the journal in RAM by default, so a reboot would erase
+the evidence of why a dispatch failed. `ops/journald-persistent.conf`
+overrides that; the install steps in `ops/README.md` apply it.
+
 ## Remaining dead-man risk
 
 The machine cannot report its own total failure. If it is powered off, its
-timer stops, or nobody notices a failed local service, GitHub receives no
-dispatch and therefore cannot open a tracking issue.
+timer stops, or it has no network for the whole retry window and no local
+`HEALTHCHECK_URL`, GitHub receives no dispatch and therefore cannot open a
+tracking issue.
 
 The workflow has optional Healthchecks.io support for this case. Its
 `notify` job:
@@ -50,13 +59,16 @@ timer through GitHub Pages deployment.
 3. Add the check's ping URL as the GitHub Actions repository secret
    `HEALTHCHECK_URL`.
 4. Dispatch `Update calendar` manually and confirm the check records a ping.
+5. Optionally add the same URL to `/etc/no-trains-refresh.env` on the driver
+   so a dispatch that fails after all retries is reported immediately.
 
-The URL is a credential and must not be committed or placed in the local
-systemd environment file.
+The URL is a credential and must not be committed. Keeping a copy in the
+root-only local environment file is a deliberate trade-off: faster alerting
+on driver-side failure against a second copy of the secret outside GitHub.
 
 ## Driver configuration
 
 The source-controlled systemd units and installation procedure are under
-`ops/`. The live machine stores its Actions-only GitHub token in
-`/etc/no-trains-refresh.env`; the PTV credentials and optional heartbeat URL
-remain GitHub Actions secrets.
+`ops/`. The live machine stores its Actions-only GitHub token (and,
+optionally, the heartbeat URL) in `/etc/no-trains-refresh.env`; the PTV
+credentials remain GitHub Actions secrets only.
