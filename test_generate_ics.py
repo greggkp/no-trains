@@ -68,6 +68,30 @@ class ParseDatetimeTextTests(unittest.TestCase):
             end, datetime.datetime(2026, 1, 1, 5, 0, tzinfo=MELBOURNE)
         )
 
+    def test_abbreviated_months(self):
+        start, end = g.parse_datetime_text(
+            "8pm Friday 25 Sept to 11pm Sunday 4 Oct 2026"
+        )
+        self.assertEqual(
+            start, datetime.datetime(2026, 9, 25, 20, 0, tzinfo=MELBOURNE)
+        )
+        self.assertEqual(
+            end, datetime.datetime(2026, 10, 4, 23, 0, tzinfo=MELBOURNE)
+        )
+
+    def test_unknown_month_is_value_error(self):
+        # Must be ValueError (all-day fallback), not KeyError (crashes the run).
+        with self.assertRaises(ValueError):
+            g.parse_datetime_text("8pm Friday 2 Foo to 11pm Sunday 4 Bar 2026")
+
+    def test_midnight_end_means_end_of_named_day(self):
+        start, end = g.parse_datetime_text(
+            "8pm Friday 2 October to midnight Sunday 4 October 2026"
+        )
+        self.assertEqual(
+            end, datetime.datetime(2026, 10, 5, 0, 0, tzinfo=MELBOURNE)
+        )
+
     def test_missing_end_year(self):
         with self.assertRaises(ValueError):
             g.parse_datetime_text("8pm Friday 26 June to 11pm Sunday 28 June")
@@ -215,6 +239,9 @@ class EscapeIcsTests(unittest.TestCase):
             g.escape_ics("a; b, c\\d\ne"), "a\\; b\\, c\\\\d\\ne"
         )
 
+    def test_carriage_returns_normalised(self):
+        self.assertEqual(g.escape_ics("a\r\nb\rc"), "a\\nb\\nc")
+
 
 class FoldTests(unittest.TestCase):
     def test_short_line_unchanged(self):
@@ -327,6 +354,56 @@ class BuildEventTests(unittest.TestCase):
         self.assertIn("DTSTART;TZID=Australia/Melbourne:20260626T203000", text)
         self.assertIn("last service", text)
         self.assertIn("URL:https://example.test/pw", text)
+
+    def test_abbreviated_month_does_not_crash(self):
+        entry = self._entry(dateTimeText="8pm Friday 26 Jun to 11pm Sunday 28 Jun 2026")
+        text = self._joined(entry)
+        self.assertIn("DTEND;TZID=Australia/Melbourne:20260628T230000", text)
+
+    def test_nightly_to_midnight_counts_last_night(self):
+        entry = self._entry(
+            classNames=["frankston", "at-night"],
+            dateTimeText="8pm Monday 22 June to midnight Wednesday 24 June 2026",
+        )
+        text = self._joined(entry)
+        self.assertIn("DTSTART;TZID=Australia/Melbourne:20260622T200000", text)
+        self.assertIn("DTEND;TZID=Australia/Melbourne:20260623T000000", text)
+        self.assertIn("RRULE:FREQ=DAILY;COUNT=3", text)
+
+    def test_headline_to_midnight_ends_next_day(self):
+        def fake_detail(link):
+            return "8pm Friday to midnight Sunday", []
+
+        entry = self._entry(extendedProps={"link": "https://example.test/pw"})
+        original = g.fetch_detail
+        g.fetch_detail = fake_detail
+        try:
+            text = self._joined(entry)
+        finally:
+            g.fetch_detail = original
+        self.assertIn("DTEND;TZID=Australia/Melbourne:20260629T000000", text)
+
+    def test_detail_cache_shares_fetch_and_failure_count(self):
+        # Works listed on two lines: one fetch, one failure, both events built.
+        calls = []
+
+        def boom(link):
+            calls.append(link)
+            raise OSError("down")
+
+        entry = self._entry(extendedProps={"link": "https://example.test/pw"})
+        stats, cache = g.Stats(), {}
+        original = g.fetch_detail
+        g.fetch_detail = boom
+        try:
+            with contextlib.redirect_stderr(io.StringIO()):
+                g.build_event(entry, stats, detail_cache=cache)
+                g.build_event(entry, stats, detail_cache=cache)
+        finally:
+            g.fetch_detail = original
+        self.assertEqual(calls, ["https://example.test/pw"])
+        self.assertEqual(stats.total_events, 2)
+        self.assertEqual(stats.detail_failures, 1)
 
 
 class BuildEventPtvTests(unittest.TestCase):

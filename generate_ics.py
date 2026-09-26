@@ -45,14 +45,10 @@ PTV_BUS_REPLACEMENT_RE = re.compile(r"buses replace trains", re.IGNORECASE)
 # drift worth flagging, not rounding.
 PTV_MISMATCH_TOLERANCE = datetime.timedelta(hours=3)
 
-MONTHS = {
-    name: number
-    for number, name in enumerate(
-        "January February March April May June July August "
-        "September October November December".split(),
-        start=1,
-    )
-}
+MONTH_NAMES = (
+    "january february march april may june july august "
+    "september october november december"
+).split()
 
 DATETIME_TEXT_RE = re.compile(
     r"(?P<time>midnight|midday|noon|\d{1,2}(?:[.:]\d{2})?\s*[ap]m)\s+"
@@ -242,12 +238,26 @@ def parse_time(text):
     return datetime.time(hour, int(match.group(2) or 0))
 
 
+def parse_month(name):
+    """Month number for a full or abbreviated name ('October', 'Oct', 'Sept').
+
+    Raises ValueError (not KeyError) for anything else, so an unexpected word
+    falls back to an all-day event instead of crashing the run.
+    """
+    lowered = name.lower()
+    for number, full in enumerate(MONTH_NAMES, start=1):
+        if len(lowered) >= 3 and full.startswith(lowered):
+            return number
+    raise ValueError(f"Unrecognised month: {name!r}")
+
+
 def parse_datetime_text(text):
     """Parse e.g. '8pm Friday 26 June to 11pm Sunday 28 June 2026'.
 
     Returns (start, end) as aware datetimes in Melbourne time. The year is
     usually only present on the end date; a start without a year takes the
-    end's year, rolled back one if that would place it after the end.
+    end's year, rolled back one if that would place it after the end. An end
+    of 'midnight Sunday' means the end of Sunday, i.e. 00:00 on Monday.
     """
     matches = list(DATETIME_TEXT_RE.finditer(text))
     if len(matches) != 2:
@@ -259,13 +269,15 @@ def parse_datetime_text(text):
 
     def build(match, year):
         return datetime.datetime.combine(
-            datetime.date(year, MONTHS[match.group("month").capitalize()],
+            datetime.date(year, parse_month(match.group("month")),
                           int(match.group("day"))),
             parse_time(match.group("time")),
             tzinfo=MELBOURNE,
         )
 
     end = build(end_match, int(end_match.group("year")))
+    if end_match.group("time").lower() == "midnight":
+        end += datetime.timedelta(days=1)
     start_year = int(matches[0].group("year") or end_match.group("year"))
     start = build(matches[0], start_year)
     if start > end:
@@ -334,6 +346,8 @@ def format_time(moment):
 
 
 def escape_ics(text):
+    # Normalise line breaks first: a bare CR would end the content line.
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
     return (
         text.replace("\\", "\\\\")
         .replace(";", "\\;")
@@ -362,7 +376,10 @@ def format_local(moment):
     return moment.strftime("%Y%m%dT%H%M%S")
 
 
-def build_event(entry, stats=None, ptv_span=None):
+def build_event(entry, stats=None, ptv_span=None, detail_cache=None):
+    """Build one VEVENT. detail_cache ({link: (headline, station_groups)})
+    lets works listed on several lines share one detail-page fetch, and one
+    failure count, across calendars."""
     if stats is not None:
         stats.total_events += 1
     title = strip_html(entry["titleHTML"])
@@ -374,13 +391,18 @@ def build_event(entry, stats=None, ptv_span=None):
     if link:
         if stats is not None:
             stats.events_with_link += 1
-        try:
-            headline, station_groups = fetch_detail(link)
-        except (OSError, ValueError, KeyError) as error:
-            if stats is not None:
-                stats.detail_failures += 1
-            print(f"warning: pw-{entry['id']}: detail page failed: {error}",
-                  file=sys.stderr)
+        if detail_cache is not None and link in detail_cache:
+            headline, station_groups = detail_cache[link]
+        else:
+            try:
+                headline, station_groups = fetch_detail(link)
+            except (OSError, ValueError, KeyError) as error:
+                if stats is not None:
+                    stats.detail_failures += 1
+                print(f"warning: pw-{entry['id']}: detail page failed: {error}",
+                      file=sys.stderr)
+            if detail_cache is not None:
+                detail_cache[link] = (headline, station_groups)
 
     description_parts = [headline or date_text]
     for label, stations in station_groups:
@@ -439,8 +461,11 @@ def build_event(entry, stats=None, ptv_span=None):
             end_label = "last service" if ends_last_service else format_time(end)
             time_suffix = f"{format_time(start)}–{end_label} each night"
         else:
-            if head_end:
+            if head_end and head_end != end.time():
                 end = end.replace(hour=head_end.hour, minute=head_end.minute)
+                if head_end == datetime.time(0, 0):
+                    # "to midnight" ends the named day: 00:00 the day after.
+                    end += datetime.timedelta(days=1)
             end_label = "last service" if ends_last_service else format_time(end)
             time_suffix = f"{format_time(start)} {start:%a} – {end_label} {end:%a}"
 
@@ -499,7 +524,7 @@ def select_entries(entries, line):
     return sorted(selected.values(), key=lambda e: (e["start"], e["id"]))
 
 
-def build_calendar(entries, line, stats=None, ptv_spans=None):
+def build_calendar(entries, line, stats=None, ptv_spans=None, detail_cache=None):
     line_name = line.replace("-", " ").title()
     lines = [
         "BEGIN:VCALENDAR",
@@ -516,7 +541,7 @@ def build_calendar(entries, line, stats=None, ptv_spans=None):
         span = match_ptv_span(entry, ptv_spans) if ptv_spans is not None else None
         if ptv_spans is not None and span is None and stats is not None:
             stats.ptv_unmatched += 1
-        lines.extend(build_event(entry, stats, span))
+        lines.extend(build_event(entry, stats, span, detail_cache))
     lines.append("END:VCALENDAR")
     return "\r\n".join(fold(l) for l in lines) + "\r\n"
 
@@ -565,11 +590,13 @@ def main():
     OUTPUT_DIR.mkdir(exist_ok=True)
     stats = Stats()
     ptv_spans = fetch_ptv_spans(stats)
+    detail_cache = {}
     for line in LINES:
         selected = select_entries(feed, line)
         output_path = OUTPUT_DIR / f"{line}.ics"
         output_path.write_text(
-            build_calendar(selected, line, stats, ptv_spans.get(line)),
+            build_calendar(selected, line, stats, ptv_spans.get(line),
+                           detail_cache),
             encoding="utf-8",
         )
         print(f"{output_path.name}: {len(selected)} events")
