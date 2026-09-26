@@ -60,6 +60,26 @@ journalctl -u no-trains-refresh.service
 service fails. `test_ops_refresh.py` in the repository root pins that
 behaviour with stub `gh` and `curl` binaries.
 
+## Updating the installed copy
+
+The driver runs the installed copies under `/usr/local/bin` and `/etc/systemd/`,
+not this checkout, so a merged change to `ops/` does nothing until it is
+reinstalled on the driver. When developing on another machine, copy the file
+across and install it:
+
+```bash
+scp ops/no-trains-refresh.sh raspberrypi:/tmp/
+ssh raspberrypi 'sudo install -m 755 /tmp/no-trains-refresh.sh /usr/local/bin/no-trains-refresh'
+```
+
+For a changed unit file, install it into `/etc/systemd/system/` the same way
+and then run `sudo systemctl daemon-reload` (for the timer, also
+`sudo systemctl restart no-trains-refresh.timer`). A changed journald drop-in
+needs `sudo systemctl restart systemd-journald`.
+
+Changes to `generate_ics.py` or the workflow need no step on the driver:
+GitHub Actions runs them from `main`.
+
 `Persistent=true` causes one catch-up dispatch after boot if a scheduled time
 was missed while the machine was off.
 
