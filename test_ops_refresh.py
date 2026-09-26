@@ -1,7 +1,8 @@
 """Pin the retry/report behaviour of ops/no-trains-refresh.sh.
 
-The script is exercised with stub ``gh`` and ``curl`` binaries on PATH, so no
-network access or real credentials are involved.
+The script is exercised with stub ``gh``, ``curl`` and ``timeout`` binaries on
+PATH, so no network access or real credentials are involved (and the suite
+runs on macOS, which has no ``timeout``).
 """
 
 import os
@@ -21,6 +22,20 @@ class RefreshScriptTests(unittest.TestCase):
         self.bin = pathlib.Path(tmp.name) / "bin"
         self.bin.mkdir()
         self.calls = pathlib.Path(tmp.name) / "calls.log"
+        self.stub_timeout()
+
+    def stub_timeout(self, hang_first=0):
+        """timeout that logs its args, reports the first ``hang_first`` runs
+        as timed out (exit 124, gh never runs), then runs the command."""
+        self.stub(
+            "timeout",
+            f'echo "timeout $*" >> "$CALLS"\n'
+            f'n=$(grep -c "^timeout " "$CALLS")\n'
+            f'if [ "$n" -le {hang_first} ]; then exit 124; fi\n'
+            f'while [ "${{1#-}}" != "$1" ]; do shift 2; done\n'
+            f'shift\n'
+            f'exec "$@"\n',
+        )
 
     def stub(self, name, body):
         path = self.bin / name
@@ -101,6 +116,33 @@ class RefreshScriptTests(unittest.TestCase):
         # The last gh error travels in the ping body for diagnosis.
         self.assertIn("no route to host", curl_calls[0])
         self.assertIn("failure reported to Healthchecks.io", result.stderr)
+
+    def test_dispatch_is_capped_by_timeout(self):
+        self.stub_gh(0)
+        self.stub_curl()
+        result = self.run_script(REFRESH_DISPATCH_TIMEOUT="45")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.logged("timeout "), [f"timeout -k 10 45 gh {DISPATCH_ARGS}"])
+
+    def test_hung_dispatch_is_retried(self):
+        self.stub_timeout(hang_first=1)
+        self.stub_gh(0)
+        self.stub_curl()
+        result = self.run_script()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("gh timed out after 60s", result.stderr)
+        self.assertIn("dispatched on attempt 2 of 3", result.stdout)
+
+    def test_repeated_hangs_are_reported(self):
+        self.stub_timeout(hang_first=99)
+        self.stub_gh(0)
+        self.stub_curl()
+        result = self.run_script(HEALTHCHECK_URL="https://hc.example/abc123")
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(self.logged("gh "), [])
+        curl_calls = self.logged("curl ")
+        self.assertEqual(len(curl_calls), 1)
+        self.assertIn("gh timed out after 60s", curl_calls[0])
 
     def test_report_failure_is_logged_not_fatal_to_diagnosis(self):
         self.stub_gh(99)
