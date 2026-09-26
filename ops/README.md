@@ -64,18 +64,20 @@ behaviour with stub `gh` and `curl` binaries.
 
 The driver runs the installed copies under `/usr/local/bin` and `/etc/systemd/`,
 not this checkout, so a merged change to `ops/` does nothing until it is
-reinstalled on the driver. When developing on another machine, copy the file
-across and install it:
+reinstalled on the driver. From a checkout on the development machine, after
+the change is merged and pulled:
 
 ```bash
-scp ops/no-trains-refresh.sh raspberrypi:/tmp/
-ssh raspberrypi 'sudo install -m 755 /tmp/no-trains-refresh.sh /usr/local/bin/no-trains-refresh'
+ops/deploy.sh            # which installed files differ from ops/? (read-only)
+ops/deploy.sh --apply    # install those, reload/restart what needs it, re-check
 ```
 
-For a changed unit file, install it into `/etc/systemd/system/` the same way
-and then run `sudo systemctl daemon-reload` (for the timer, also
-`sudo systemctl restart no-trains-refresh.timer`). A changed journald drop-in
-needs `sudo systemctl restart systemd-journald`.
+`deploy.sh` reaches the driver over SSH (`NO_TRAINS_HOST`, default
+`raspberrypi`) and needs passwordless `sudo` there. It installs only the files
+that differ; a changed unit triggers `daemon-reload` (plus a timer restart for
+the timer), and a changed journald drop-in restarts `systemd-journald`.
+`--apply` refuses uncommitted or unmerged `ops/` changes, so the driver only
+runs what is on `main`. `test_ops_deploy.py` pins this with a stub `ssh`.
 
 Changes to `generate_ics.py` or the workflow need no step on the driver:
 GitHub Actions runs them from `main`.

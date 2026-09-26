@@ -28,8 +28,10 @@ are gitignored.
   (and tests).
 - `ops/` — the external six-hour schedule: systemd service/timer, the
   `no-trains-refresh.sh` dispatch script (retries, then reports failure to
-  Healthchecks.io), a journald persistence drop-in, and setup instructions.
-  `test_ops_refresh.py` pins the script's behaviour with stub `gh`/`curl`.
+  Healthchecks.io), a journald persistence drop-in, setup instructions, and
+  `deploy.sh` (run from the dev machine to check/update the Pi's installed
+  copies). `test_ops_refresh.py` and `test_ops_deploy.py` pin the two
+  scripts with stub `gh`/`curl`/`timeout` and `ssh`.
 
 ## Conventions
 
@@ -83,10 +85,12 @@ of `HEALTHCHECK_URL`, live in `/etc/no-trains-refresh.env`. Never commit
 either. The PTV credentials remain GitHub Actions secrets only.
 
 The driver (a Raspberry Pi) runs *installed copies* of the `ops/` files, not a
-checkout. Merging a change to `ops/` does not deploy it: after it lands,
-remind the user to copy and reinstall the changed file on the Pi (and
-`daemon-reload` for unit files) — see "Updating the installed copy" in
-`ops/README.md`. Generator and workflow changes need no Pi step.
+checkout. Merging a change to `ops/` does not deploy it: after it lands and
+is pulled, remind the user to run `ops/deploy.sh --apply` (plain
+`ops/deploy.sh` is a read-only drift check) — see "Updating the installed
+copy" in `ops/README.md`. When adding a file to `ops/` that gets installed,
+add it to `FILES` in `ops/deploy.sh`. Generator and workflow changes need no
+Pi step.
 
 ## Running
 
