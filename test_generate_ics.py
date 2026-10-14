@@ -604,6 +604,29 @@ class StatsTests(unittest.TestCase):
         self.assertTrue(g.Stats().degraded)
         self.assertFalse(g.Stats(total_events=1).degraded)
 
+    def test_quiet_lines_are_not_degraded(self):
+        # Our lines having no works while other lines do is normal (seen
+        # 2026-10-15 when Frankston's last bus replacement aged out).
+        feed = [
+            {"id": 1, "type": "bus-replacement", "classNames": ["lilydale"],
+             "start": "2026-10-20", "end": "2026-10-21"},
+            {"id": 2, "type": "night-works", "classNames": ["frankston"],
+             "start": "2026-10-20", "end": "2026-10-21"},
+        ]
+        stats = g.Stats(feed_works=g.count_feed_works(feed))
+        self.assertEqual(stats.feed_works, 1)
+        self.assertEqual(g.select_entries(feed, "frankston"), [])
+        g.build_calendar([], "frankston", stats)
+        self.assertEqual(stats.total_events, 0)
+        self.assertFalse(stats.degraded)
+
+    def test_feed_without_bus_replacements_is_degraded(self):
+        # Entries present but none typed bus-replacement (e.g. the type
+        # values were renamed upstream) is still drift.
+        feed = [{"id": 1, "type": "bus-replacements", "classNames": []}]
+        self.assertEqual(g.count_feed_works(feed), 0)
+        self.assertTrue(g.Stats(feed_works=0).degraded)
+
     def test_empty_feed_degrades_a_whole_run(self):
         stats = g.Stats()
         cal = g.build_calendar([], "frankston", stats)
@@ -649,6 +672,7 @@ class StatsTests(unittest.TestCase):
             with open(out_path, encoding="utf-8") as handle:
                 written = handle.read()
         self.assertIn("::warning::Calendar generation degraded", printed)
+        self.assertIn("feed_works=0", written)
         self.assertIn("fallback_events=2", written)
         self.assertIn("detail_failures=1", written)
         self.assertIn("ptv_matched=3", written)
