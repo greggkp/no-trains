@@ -11,7 +11,9 @@ Every dispatched workflow reports its own health:
 - a hard failure in tests, generation, deployment, or the heartbeat request opens a
   `calendar-pipeline` issue;
 - soft degradation from parser fallbacks, detail-page failures, PTV API
-  drift, or a run that produced no events at all opens the same issue;
+  drift, or a feed with no bus-replacement works on any line opens the
+  same issue (our lines alone being empty is normal and stays clean), as
+  does one of our lines vanishing from the feed entirely (a renamed slug);
 - the next clean run closes the issue.
 
 The local dispatch retries transient failures: `ops/no-trains-refresh.sh`

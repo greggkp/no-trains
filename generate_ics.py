@@ -97,6 +97,13 @@ class Stats:
     """
 
     total_events: int = 0
+    # Bus-replacement entries in the whole feed, every line and any date.
+    # Distinguishes "our lines are quiet" from "the feed broke".
+    feed_works: int = 0
+    # Our LINES that no feed entry of any type or date mentions. The feed
+    # keeps years of history, so a line missing entirely means its slug
+    # changed upstream and its calendar would silently go empty.
+    missing_lines: tuple = ()
     events_with_link: int = 0
     fallback_events: int = 0
     detail_failures: int = 0
@@ -113,13 +120,15 @@ class Stats:
     @property
     def degraded(self) -> bool:
         return (
-            # Zero events across every line. Most likely the upstream JSON
-            # changed shape and the entry list now parses as empty instead
-            # of raising; the alternative is that Metro genuinely has no
-            # planned works, which is indistinguishable from here. Without
-            # this check an empty feed publishes empty calendars and still
-            # reports a clean run.
-            self.total_events == 0
+            # Zero events across our lines AND no bus-replacement works
+            # anywhere in the feed. The feed keeps past works across the
+            # whole network, so an empty count there means the upstream
+            # JSON changed shape (entries or type values) rather than
+            # raising. Our lines alone being empty is normal between works
+            # and is not degradation. Without this check a broken feed
+            # publishes empty calendars and still reports a clean run.
+            (self.total_events == 0 and self.feed_works == 0)
+            or bool(self.missing_lines)
             or self.fallback_events > 0
             or self.detail_failures > 0
             or self.ptv_errors > 0
@@ -508,6 +517,19 @@ def build_event(entry, stats=None, ptv_span=None, detail_cache=None):
     return lines
 
 
+def count_feed_works(entries):
+    """Bus-replacement entries in the whole feed, ignoring line and date."""
+    return sum(1 for entry in entries if entry.get("type") == WORK_TYPE)
+
+
+def find_missing_lines(entries, lines):
+    """Lines no feed entry mentions at all, of any type or date."""
+    seen = set()
+    for entry in entries:
+        seen.update(entry.get("classNames") or ())
+    return tuple(line for line in lines if line not in seen)
+
+
 def select_entries(entries, line):
     cutoff = (
         datetime.datetime.now(MELBOURNE) - datetime.timedelta(days=KEEP_PAST_DAYS)
@@ -556,7 +578,9 @@ def report(stats):
     output stays deterministic regardless of environment.
     """
     summary = (
-        f"events={stats.total_events} fallback={stats.fallback_events} "
+        f"events={stats.total_events} feed_works={stats.feed_works} "
+        f"missing_lines={','.join(stats.missing_lines) or 'none'} "
+        f"fallback={stats.fallback_events} "
         f"detail_failures={stats.detail_failures}/{stats.events_with_link} "
         f"ptv_matched={stats.ptv_matched} ptv_unmatched={stats.ptv_unmatched} "
         f"ptv_mismatches={stats.ptv_mismatches} ptv_errors={stats.ptv_errors} "
@@ -568,6 +592,10 @@ def report(stats):
     if github_output:
         with open(github_output, "a", encoding="utf-8") as handle:
             handle.write(f"total_events={stats.total_events}\n")
+            handle.write(f"feed_works={stats.feed_works}\n")
+            handle.write(
+                f"missing_lines={','.join(stats.missing_lines) or 'none'}\n"
+            )
             handle.write(f"fallback_events={stats.fallback_events}\n")
             handle.write(f"detail_failures={stats.detail_failures}\n")
             handle.write(f"ptv_matched={stats.ptv_matched}\n")
@@ -588,7 +616,10 @@ def report(stats):
 def main():
     feed = fetch_feed()
     OUTPUT_DIR.mkdir(exist_ok=True)
-    stats = Stats()
+    stats = Stats(
+        feed_works=count_feed_works(feed),
+        missing_lines=find_missing_lines(feed, LINES),
+    )
     ptv_spans = fetch_ptv_spans(stats)
     detail_cache = {}
     for line in LINES:
