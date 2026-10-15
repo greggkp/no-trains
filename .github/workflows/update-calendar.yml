@@ -34,6 +34,7 @@ jobs:
       degraded: ${{ steps.generate.outputs.degraded }}
       total_events: ${{ steps.generate.outputs.total_events }}
       feed_works: ${{ steps.generate.outputs.feed_works }}
+      missing_lines: ${{ steps.generate.outputs.missing_lines }}
       fallback_events: ${{ steps.generate.outputs.fallback_events }}
       detail_failures: ${{ steps.generate.outputs.detail_failures }}
       ptv_mismatches: ${{ steps.generate.outputs.ptv_mismatches }}
@@ -110,6 +111,7 @@ jobs:
           DEGRADED: ${{ needs.update.outputs.degraded }}
           TOTAL_EVENTS: ${{ needs.update.outputs.total_events }}
           FEED_WORKS: ${{ needs.update.outputs.feed_works }}
+          MISSING_LINES: ${{ needs.update.outputs.missing_lines }}
           FALLBACK_EVENTS: ${{ needs.update.outputs.fallback_events }}
           DETAIL_FAILURES: ${{ needs.update.outputs.detail_failures }}
           PTV_MISMATCHES: ${{ needs.update.outputs.ptv_mismatches }}
@@ -126,6 +128,7 @@ jobs:
             const degraded = process.env.DEGRADED === 'true';
             const total = process.env.TOTAL_EVENTS;
             const feedWorks = process.env.FEED_WORKS;
+            const missingLines = process.env.MISSING_LINES;
             const fallback = process.env.FALLBACK_EVENTS;
             const detail = process.env.DETAIL_FAILURES;
             const ptvMismatches = process.env.PTV_MISMATCHES;
@@ -149,7 +152,7 @@ jobs:
             if (failed || degraded) {
               const kind = failed
                 ? 'Hard failure — tests, generation, deploy, or heartbeat failed (see logs).'
-                : 'Soft degradation — entries fell back to all-day, detail scrapes failed, the PTV API errored/disagreed with the feed, or the feed had no bus-replacement works on any line.';
+                : 'Soft degradation — entries fell back to all-day, detail scrapes failed, the PTV API errored/disagreed with the feed, or the feed had no bus-replacement works on any line, or one of our lines vanished from the feed.';
               const body = [
                 `**${kind}**`, '',
                 `- Run: ${runUrl}`,
@@ -158,6 +161,7 @@ jobs:
                 `- heartbeat: ${heartbeatResult || 'n/a'}`,
                 `- total_events: ${total || 'n/a'}`,
                 `- feed_works: ${feedWorks || 'n/a'}`,
+                `- missing_lines: ${missingLines || 'n/a'}`,
                 `- fallback_events: ${fallback || 'n/a'}`,
                 `- detail_failures: ${detail || 'n/a'}`,
                 `- ptv_mismatches: ${ptvMismatches || 'n/a'}`,

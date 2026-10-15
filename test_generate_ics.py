@@ -620,6 +620,22 @@ class StatsTests(unittest.TestCase):
         self.assertEqual(stats.total_events, 0)
         self.assertFalse(stats.degraded)
 
+    def test_renamed_line_slug_is_degraded(self):
+        # Other lines still have works, so feed_works alone stays clean;
+        # a line absent from every entry means its slug changed upstream.
+        feed = [
+            {"id": 1, "type": "bus-replacement",
+             "classNames": ["lilydale", "bus-replacement"]},
+            {"id": 2, "type": "night-works",
+             "classNames": ["frankston-line", "night-works"]},
+            {"id": 3, "type": "night-works", "classNames": ["sandringham"]},
+        ]
+        missing = g.find_missing_lines(feed, ["frankston", "sandringham"])
+        self.assertEqual(missing, ("frankston",))
+        stats = g.Stats(feed_works=g.count_feed_works(feed),
+                        missing_lines=missing)
+        self.assertTrue(stats.degraded)
+
     def test_feed_without_bus_replacements_is_degraded(self):
         # Entries present but none typed bus-replacement (e.g. the type
         # values were renamed upstream) is still drift.
@@ -673,6 +689,7 @@ class StatsTests(unittest.TestCase):
                 written = handle.read()
         self.assertIn("::warning::Calendar generation degraded", printed)
         self.assertIn("feed_works=0", written)
+        self.assertIn("missing_lines=none", written)
         self.assertIn("fallback_events=2", written)
         self.assertIn("detail_failures=1", written)
         self.assertIn("ptv_matched=3", written)

@@ -64,7 +64,9 @@ are gitignored.
   when it produces **zero events** *and* the feed has no bus-replacement
   entries on any line (`feed_works`): an upstream shape change that parses to
   an empty list would otherwise publish empty feeds and report a clean run.
-  Our lines alone having no works is normal and is not degraded.
+  Our lines alone having no works is normal and is not degraded, but a line
+  absent from *every* feed entry (`missing_lines`; the feed keeps years of
+  history) is: it means the line's slug changed upstream.
   `Stats`/`report()` must not influence feed bytes — keep them side-channel only.
 
 ## Failure notifications
@@ -72,8 +74,8 @@ are gitignored.
 The `update` workflow opens/updates a tracking GitHub Issue (label
 `calendar-pipeline`) on **hard failure** (any step fails — generation crash or
 Pages deploy failure) or **soft degradation** (`degraded=true` — entries fell
-back, detail scrapes failed, or the feed had no bus-replacement works on any
-line), and
+back, detail scrapes failed, the feed had no bus-replacement works on any
+line, or one of our lines vanished from the feed), and
 **auto-closes** it on the next clean run.
 Soft degradation does not block publishing: the feed still deploys, the issue
 just flags drift. This needs `issues: write` permission (already set). If the
