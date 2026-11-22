@@ -41,7 +41,7 @@ jobs:
       ptv_errors: ${{ steps.generate.outputs.ptv_errors }}
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment-retry.outputs.page_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -66,8 +66,21 @@ jobs:
         with:
           path: docs
 
+      # deploy-pages can look up the artifact a moment before GitHub lists it
+      # ("No artifacts named github-pages were found") even though the upload
+      # just finalized. Retry once after a pause; a second failure fails the job.
       - name: Deploy to GitHub Pages
         id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
+
+      - name: Wait before retrying deploy
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 30
+
+      - name: Retry deploy to GitHub Pages
+        id: deployment-retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
 
   # Keep notification separate from `update`: if the test job fails, `update`
@@ -153,6 +166,11 @@ jobs:
               const kind = failed
                 ? 'Hard failure — tests, generation, deploy, or heartbeat failed (see logs).'
                 : 'Soft degradation — entries fell back to all-day, detail scrapes failed, the PTV API errored/disagreed with the feed, or the feed had no bus-replacement works on any line, or one of our lines vanished from the feed.';
+              // A hard failure is often GitHub-side (deploy or heartbeat), so
+              // don't point at the Metro feed unless the data looked wrong.
+              const hint = failed
+                ? 'Check which step failed in the run log. A deploy or heartbeat failure is usually transient on GitHub\'s or Healthchecks\' side; a failed test or generation step points at the code or the Metro feed.'
+                : 'The unofficial Metro planned-works feed/markup may have changed.';
               const body = [
                 `**${kind}**`, '',
                 `- Run: ${runUrl}`,
@@ -167,7 +185,7 @@ jobs:
                 `- ptv_mismatches: ${ptvMismatches || 'n/a'}`,
                 `- ptv_errors: ${ptvErrors || 'n/a'}`,
                 '',
-                'The unofficial Metro planned-works feed/markup may have changed.',
+                hint,
               ].join('\n');
               if (issue) {
                 await github.rest.issues.createComment({
